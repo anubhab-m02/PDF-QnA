@@ -12,7 +12,7 @@ This project leverages the power of Large Language Models (LLMs) and document em
 ## Getting Started
 
 1.  **Prerequisites:**
-    *   Python 3.x
+    *   `Python 3.10`
     *   `streamlit`
     *   `PyPDF2`
     *   `langchain`
