@@ -4,11 +4,14 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 import os
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 import google.generativeai as genai
-from langchain.vectorstores import FAISS
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.chains.question_answering import load_qa_chain
-from langchain.prompts import PromptTemplate
+from langchain_community.vectorstores import FAISS
 from dotenv import load_dotenv
+import logging
+import shutil
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -22,95 +25,130 @@ def get_pdf_text(pdf_docs):
             text += page.extract_text()
     return text
 
-
 def get_text_chunks(text):
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
     chunks = text_splitter.split_text(text)
     return chunks
 
-def get_vector_store(text_chunks):
+def update_vector_store(text_chunks):
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-    vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
+    if os.path.exists("faiss_index"):
+        vector_store = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
+        vector_store.add_texts(text_chunks)
+    else:
+        vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
     vector_store.save_local("faiss_index")
+
+def get_gemini_response(question, context):
+    model = genai.GenerativeModel('gemini-pro')
+    prompt = f"""
+    Answer the question as detailed as possible from the provided context. Make sure to provide all the details.
+    If the answer is not in the provided context, just say, "Answer is not available in the context." Don't provide a wrong answer.
     
-def get_conversational_chain():
-    prompt_template = """
-    Answer the question as detailed as possible from the provided context, make sure to provide all the details, 
-    if the answer is not in the provided context just say, "answer is not available in the context", don't provide the wrong answer.\n\n
-    Context:\n {context}?\n
-    Question:\n {question}\n
-    
+
+    Context: {context}
+
+    Question: {question}
+
     Answer:
     """
-    model = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.8)
-    prompt=PromptTemplate(template=prompt_template, input_variables=["context", "question"])
-    chain = load_qa_chain(model,chain_type="stuff", prompt=prompt)
-    return chain
+    try:
+        response = model.generate_content(prompt)
+        logger.info(f"Raw response: {response}")
+        logger.info(f"Response type: {type(response)}")
+        logger.info(f"Response attributes: {dir(response)}")
+        
+        # Extract the text from the response
+        if response.candidates:
+            candidate = response.candidates[0]
+            if candidate.content and candidate.content.parts:
+                return ' '.join(part.text for part in candidate.content.parts)
+        return "No readable response generated."
+    except Exception as e:
+        logger.error(f"Error generating response: {str(e)}")
+        return f"Error generating response: {str(e)}"
 
 def user_input(user_question):
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    try:
+        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+        
+        new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
+        docs = new_db.similarity_search(user_question, k=4)
+        
+        context = "\n".join([doc.page_content for doc in docs])
+        
+        #logger.info("Sending request to the model")
+        response = get_gemini_response(user_question, context)
+        
+        #logger.info(f"Received response: {response}")
+        
+        return {"output_text": response}
     
-    new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
-    docs = new_db.similarity_search(user_question)
-    
-    chain = get_conversational_chain()
-    
-    response = chain(
-        {"input_documents":docs, "question":user_question}
-        , return_only_outputs = True)
-    
-    print(response)
-    
-    st.write(response["output_text"])
-    
+    except Exception as e:
+        logger.error(f"Unexpected error occurred: {str(e)}")
+        return {"output_text": "An unexpected error occurred. Please try again."}
+
 def main():
-    st.set_page_config("AI-Powered Personalized Learning Assistant")
+    st.set_page_config(page_title="AI-Powered Personalized Learning Assistant", layout="wide")
+    
+    # Sidebar for file upload and processing
+    with st.sidebar:
+        st.header("Document Upload")
+        pdf_docs = st.file_uploader("Upload your PDFs", type="pdf", accept_multiple_files=True)
+        if st.button("Process Documents"):
+            if pdf_docs:
+                with st.spinner("Processing documents..."):
+                    raw_text = get_pdf_text(pdf_docs)
+                    text_chunks = get_text_chunks(raw_text)
+                    update_vector_store(text_chunks)
+                st.success("Documents processed successfully!")
+            else:
+                st.warning("Please upload PDF documents first.")
+
+    # Main chat interface
     st.header("AI-Powered Personalized Learning Assistant")
 
     # Initialize chat history
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # File Uploader
-    pdf_docs = st.file_uploader("Upload your PDFs", type="pdf", accept_multiple_files=True)
-
-    if st.button("Process & Ask"):
-        if pdf_docs:
-            with st.spinner("Processing..."):
-                # 1. Get PDF Text
-                raw_text = get_pdf_text(pdf_docs)
-
-                # 2. Split into Chunks
-                text_chunks = get_text_chunks(raw_text)
-
-                # 3. Create Vector Store (Only if it doesn't exist)
-                if not os.path.exists("faiss_index"):
-                    get_vector_store(text_chunks)
-
     # Display chat history
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    chat_container = st.container()
+    with chat_container:
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
 
-    # User Input   
-
+    # User Input
     if prompt := st.chat_input("Ask a question about your documents:"):
         # Add user message to chat history
         st.session_state.messages.append({"role": "user", "content": prompt})
-        # Display user message in chat   
+        
+        # Display user message in chat
+        with chat_container:
+            with st.chat_message("user"):
+                st.markdown(prompt)
 
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        if pdf_docs:
+        if os.path.exists("faiss_index"):
             with st.spinner("Generating response..."):
-                response = user_input(prompt)  # Get the response from your existing function
+                response = user_input(prompt)
 
                 # Add AI message to chat history
                 st.session_state.messages.append({"role": "assistant", "content": response['output_text']})
+                
                 # Display AI message in chat
+                with chat_container:
+                    with st.chat_message("assistant"):
+                        st.markdown(response['output_text'])
+        else:
+            with chat_container:
                 with st.chat_message("assistant"):
-                    st.markdown(response['output_text'])
+                    st.warning("Please upload and process documents before asking questions.")
+
+    # Add a button to clear chat history
+    if st.button("Clear Chat History"):
+        st.session_state.messages = []
+        st.rerun()
                     
 if __name__ == "__main__":
     load_dotenv()
