@@ -14,11 +14,12 @@ This project leverages the power of Large Language Models (LLMs) and document em
 1.  **Prerequisites:**
     *   `Python 3.10`
     *   `streamlit`
-    *   `PyPDF2`
-    *   `langchain`
-    *   `langchain_google_genai`
     *   `google-generativeai`
     *   `python-dotenv`
+    *   `langchain`
+    *   `PyPDF2`
+    *   `faiss-cpu`
+    *   `langchain_google_genai`
 
 2.  **Installation:**
     *   Clone this repository.
@@ -42,7 +43,7 @@ This project leverages the power of Large Language Models (LLMs) and document em
 ## Usage
 
 1.  **Upload PDFs:**  Use the file uploader to select and upload your PDF documents.
-2.  **Process & Ask:**  Click the "Process & Ask" button to process the documents and enable the chat interface.
+2.  **Process & Ask:**  Click the "Process Documents" button to process the documents and enable the chat interface.
 3.  **Ask Questions:**  Type your questions in the chat input field and press Enter.
 4.  **View Responses:**  The assistant's responses will be displayed in the chat area along with your questions, creating a conversation history.
 
@@ -51,6 +52,7 @@ This project leverages the power of Large Language Models (LLMs) and document em
 *   **Security:**  Be cautious when setting `allow_dangerous_deserialization=True` in the code. Only do this if you trust the source of your FAISS index file.
 *   **Model Availability:**  Ensure you have access to the Google Gemini Pro model through your Google Cloud API key.
 *   **Error Handling:**  The code includes basic error handling, but further enhancements can be made for a more robust user experience.
+*   **FAISS Index:**  The FAISS index is updated with new documents instead of being deleted and recreated each time. This ensures that the assistant can answer questions based on all uploaded documents.
 
 ## Contributing
 
