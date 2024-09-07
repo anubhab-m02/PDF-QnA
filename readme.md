@@ -6,6 +6,7 @@ This project leverages the power of Large Language Models (LLMs) and document em
 
 *   **Document Understanding:**  Upload multiple PDF documents and the assistant will process and understand their content.
 *   **Question Answering:**  Ask questions about the uploaded documents in a conversational manner.
+*   **Quiz Generation:**  Generate multiple-choice quizzes based on the content of the uploaded documents.
 *   **Chat History:**  Maintain a chat history to keep track of your interactions with the assistant.
 *   **Powered by Google Gemini Pro:**  Utilizes the advanced capabilities of the Google Gemini Pro LLM for natural language understanding and generation.
 
@@ -45,7 +46,8 @@ This project leverages the power of Large Language Models (LLMs) and document em
 1.  **Upload PDFs:**  Use the file uploader to select and upload your PDF documents.
 2.  **Process & Ask:**  Click the "Process Documents" button to process the documents and enable the chat interface.
 3.  **Ask Questions:**  Type your questions in the chat input field and press Enter.
-4.  **View Responses:**  The assistant's responses will be displayed in the chat area along with your questions, creating a conversation history.
+4.  **Generate Quizzes:**  Use the "Generate Quiz" button to create multiple-choice quizzes based on the document content.
+5.  **View Responses:**  The assistant's responses will be displayed in the chat area along with your questions, creating a conversation history.
 
 ## Important Notes
 
