@@ -88,6 +88,35 @@ def user_input(user_question):
         logger.error(f"Unexpected error occurred: {str(e)}")
         return {"output_text": "An unexpected error occurred. Please try again."}
 
+def generate_quiz(context):
+    if not context.strip():
+        logger.error("No context provided for generating quiz.")
+        return []
+
+    questions = []
+    model = genai.GenerativeModel('gemini-pro')
+    
+    # Generate questions
+    question_prompt = f"""
+    Based on the following context, generate a list of detailed and relevant multiple-choice questions with four options each:
+    
+    Context: {context}
+    
+    Questions:
+    """
+    try:
+        question_response = model.generate_content(question_prompt)
+        if question_response.candidates:
+            candidate = question_response.candidates[0]
+            if candidate.content and candidate.content.parts:
+                generated_questions = [part.text.strip() for part in candidate.content.parts if part.text.strip()]
+                for q in generated_questions:
+                    questions.append({"question": q})
+    except Exception as e:
+        logger.error(f"Error generating quiz: {str(e)}")
+    
+    return questions
+
 def main():
     st.set_page_config(page_title="AI-Powered Personalized Learning Assistant", layout="wide")
     
@@ -101,6 +130,8 @@ def main():
                     raw_text = get_pdf_text(pdf_docs)
                     text_chunks = get_text_chunks(raw_text)
                     update_vector_store(text_chunks)
+                    st.session_state.context = raw_text  # Store the context in session state
+                    logger.info("Context extracted and stored in session state.")
                 st.success("Documents processed successfully!")
             else:
                 st.warning("Please upload PDF documents first.")
@@ -119,37 +150,78 @@ def main():
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
-    # User Input
-    if prompt := st.chat_input("Ask a question about your documents:"):
-        # Add user message to chat history
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        
-        # Display user message in chat
-        with chat_container:
-            with st.chat_message("user"):
-                st.markdown(prompt)
+    # User choice: Quiz or Gemini Response
+    user_choice = st.selectbox("Choose an option:", ["Ask a question", "Take a quiz"])
 
-        if os.path.exists("faiss_index"):
-            with st.spinner("Generating response..."):
-                response = user_input(prompt)
+    if user_choice == "Ask a question":
+        # User Input
+        if prompt := st.chat_input("Ask a question about your documents:"):
+            # Add user message to chat history
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            
+            # Display user message in chat
+            with chat_container:
+                with st.chat_message("user"):
+                    st.markdown(prompt)
 
-                # Add AI message to chat history
-                st.session_state.messages.append({"role": "assistant", "content": response['output_text']})
-                
-                # Display AI message in chat
+            if os.path.exists("faiss_index"):
+                with st.spinner("Generating response..."):
+                    response = user_input(prompt)
+
+                    # Add AI message to chat history
+                    st.session_state.messages.append({"role": "assistant", "content": response['output_text']})
+                    
+                    # Display AI message in chat
+                    with chat_container:
+                        with st.chat_message("assistant"):
+                            st.markdown(response['output_text'])
+            else:
                 with chat_container:
                     with st.chat_message("assistant"):
-                        st.markdown(response['output_text'])
-        else:
-            with chat_container:
-                with st.chat_message("assistant"):
-                    st.warning("Please upload and process documents before asking questions.")
+                        st.warning("Please upload and process documents before asking questions.")
 
-    # Add a button to clear chat history
-    if st.button("Clear Chat History"):
-        st.session_state.messages = []
-        st.rerun()
-                    
+        # Add a button to clear chat history
+        if st.button("Clear Chat History"):
+            st.session_state.messages = []
+            st.rerun()
+
+    elif user_choice == "Take a quiz":
+        # Quiz Section
+        st.header("Quiz Section")
+        if "quiz_started" not in st.session_state:
+            st.session_state.quiz_started = False
+            st.session_state.current_question = 0
+            st.session_state.questions = []
+
+        if not st.session_state.quiz_started:
+            if st.button("Start Quiz"):
+                st.session_state.quiz_started = True
+                st.session_state.current_question = 0
+                context = st.session_state.get("context", "")
+                if not context:
+                    st.error("No context available. Please upload and process documents first.")
+                    return
+                st.session_state.questions = generate_quiz(context)
+                st.rerun()
+
+        if st.session_state.quiz_started:
+            questions = st.session_state.questions
+            current_question = st.session_state.current_question
+
+            if current_question < len(questions):
+                question = questions[current_question]
+                st.write(question["question"])
+                # Display options
+
+            if st.button("Generate New Questions"):
+                context = st.session_state.get("context", "")
+                if context:
+                    st.session_state.questions = generate_quiz(context)
+                    st.session_state.current_question = 0
+                    st.rerun()
+                else:
+                    st.error("No context available. Please upload and process documents first.")
+
 if __name__ == "__main__":
     load_dotenv()
     genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
