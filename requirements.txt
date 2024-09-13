@@ -6,3 +6,10 @@ langchain-community
 python-dotenv
 google-generativeai
 faiss-cpu
+transformers  # For document summarization
+sentence-transformers  # For embedding generation
+pyttsx3  # For text-to-speech functionality
+deep_translator  # For translation support
+scikit-learn  # For TF-IDF and cosine similarity
+matplotlib  # For plotting visualizations
+seaborn  # For enhanced visualizations
