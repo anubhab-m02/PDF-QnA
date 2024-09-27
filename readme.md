@@ -29,11 +29,22 @@ Elevate your learning experience with our cutting-edge AI-powered assistant that
 ## 🚀 Getting Started
 
 1. **Clone & Setup:**
+
+   **For Mac/Linux:**
    ```bash
    git clone https://github.com/anubhab-m02/PDF-QnA.git
    cd PDF-QnA
    python -m venv venv
-   source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+
+   **For Windows:**
+   ```bash
+   git clone https://github.com/anubhab-m02/PDF-QnA.git
+   cd PDF-QnA
+   python -m venv venv
+   venv\Scripts\activate
    pip install -r requirements.txt
    ```
 
