@@ -87,9 +87,12 @@ def update_vector_store(text_chunks):
     if os.path.exists("faiss_index"):
         vector_store = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
         vector_store.add_texts(text_chunks[-100:])  # Only add the last 100 chunks
+        logger.info(f"Updated existing FAISS index with {len(text_chunks)} new chunks")
     else:
         vector_store = FAISS.from_texts(text_chunks[-100:], embedding=embeddings)
+        logger.info(f"Created new FAISS index with {len(text_chunks)} chunks")
     vector_store.save_local("faiss_index")
+    logger.info("FAISS index saved locally")
 
 def get_gemini_response(question, context):
     """Generate a response to a question based on the provided context."""
@@ -127,13 +130,14 @@ def user_input(user_question):
     try:
         embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
         new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
-        docs = new_db.similarity_search(user_question, k=2)  # Reduce from 4 to 2
+        docs = new_db.similarity_search(user_question, k=2)
         context = "\n".join([doc.page_content for doc in docs])
+        logger.info(f"Retrieved context: {context[:100]}...")
         response = get_gemini_response(user_question, context)
         return {"output_text": response}
     except Exception as e:
-        logger.error(f"Unexpected error occurred: {str(e)}")
-        return {"output_text": "An unexpected error occurred. Please try again."}
+        logger.error(f"Error in user_input: {str(e)}")
+        return {"output_text": f"An error occurred: {str(e)}"}
 
 def extract_options(question_text):
     """Extract answer choices from the generated quiz question."""
@@ -258,7 +262,7 @@ def generate_flashcards(context):
     """Generate flashcards from the document content."""
     if not context or len(context) < 100:
         logger.error("Input text is too short for generating flashcards.")
-        return []
+        return [], "Input text is too short."
 
     model = genai.GenerativeModel('gemini-pro')
     flashcard_prompt = f"""
@@ -274,11 +278,15 @@ def generate_flashcards(context):
     Please provide exactly 5 flashcards.
     """
     try:
+        logger.info("Sending request to generate flashcards...")
         flashcard_response = model.generate_content(flashcard_prompt)
+        logger.info(f"Received response: {flashcard_response}")
+        
         if flashcard_response.candidates:
             candidate = flashcard_response.candidates[0]
             if candidate.content and candidate.content.parts:
                 flashcards_text = candidate.content.parts[0].text
+                logger.info(f"Raw flashcards text: {flashcards_text}")
                 flashcards = []
                 for card in flashcards_text.split('\n\n'):
                     parts = card.split('\n')
@@ -287,21 +295,32 @@ def generate_flashcards(context):
                         definition = parts[1].split(': ', 1)[-1].strip()
                         if term and definition:
                             flashcards.append({"term": term, "definition": definition})
+                    else:
+                        logger.warning(f"Skipping malformed flashcard: {card}")
                 
                 if flashcards:
                     logger.info(f"Generated {len(flashcards)} flashcards successfully.")
-                    return flashcards
+                    return flashcards, None
                 else:
-                    logger.error("No valid flashcards were extracted from the response.")
+                    error_msg = "No valid flashcards were extracted from the response."
+                    logger.error(error_msg)
+                    return [], error_msg
             else:
-                logger.error("No content in the response from the model.")
+                error_msg = "No content in the response from the model."
+                logger.error(error_msg)
+                return [], error_msg
         else:
-            logger.error("No candidates in the response from the model.")
+            error_msg = "No candidates in the response from the model."
+            logger.error(error_msg)
+            return [], error_msg
     except Exception as e:
-        logger.error(f"Error generating flashcards: {str(e)}")
+        error_msg = f"Error generating flashcards: {str(e)}"
+        logger.error(error_msg)
         logger.error(f"Traceback: {traceback.format_exc()}")
-    
-    return []
+        return [], error_msg
+
+    # Fallback: If we reach here, something unexpected happened
+    return [], "Unexpected error occurred during flashcard generation."
 
 def translate_text(text, dest_language):
     """Translate text to the specified language using deep_translator."""
@@ -567,17 +586,7 @@ def main():
                     with st.chat_message("assistant"):
                         st.warning("Please upload and process documents before asking questions.")
 
-        # Add email sharing option
-        if st.session_state.messages:
-            recipient_email = st.text_input("Enter recipient email to share chat history:")
-            if st.button("Share Chat History"):
-                with st.spinner("Sharing chat history..."):
-                    result = send_chat_history(st.session_state.messages, recipient_email)
-                    if "successfully" in result:
-                        st.success(result)
-                    else:
-                        st.error(result)
-
+        
         if st.button("Clear Chat History"):
             st.session_state.messages = []
             st.rerun()
@@ -678,8 +687,19 @@ def main():
     elif user_choice == "Generate Flashcards":
         context = st.session_state.get("context", "")
         if context:
-            with st.spinner("Generating flashcards..."):
-                flashcards = generate_flashcards(context)
+            # Add a button to regenerate flashcards
+            regenerate = st.button("Regenerate Flashcards")
+            
+            # Generate flashcards if they don't exist or if regenerate button is pressed
+            if "flashcards" not in st.session_state or regenerate:
+                with st.spinner("Generating flashcards..."):
+                    flashcards, error_msg = generate_flashcards(context)
+                st.session_state.flashcards = flashcards
+                st.session_state.flashcard_error = error_msg
+            else:
+                flashcards = st.session_state.flashcards
+                error_msg = st.session_state.flashcard_error
+
             if flashcards:
                 st.write("Flashcards:")
                 for i, card in enumerate(flashcards, 1):
@@ -689,6 +709,11 @@ def main():
                     st.write("---")
             else:
                 st.warning("Unable to generate flashcards. Please try again or check the input text.")
+                st.error(f"Error: {error_msg}")
+                st.write("Debug information:")
+                st.write(f"Context length: {len(context)}")
+                st.write(f"First 100 characters of context: {context[:100]}...")
+                st.write("Check the application logs for more details.")
         else:
             st.error("No context available. Please upload and process documents first.")
 
