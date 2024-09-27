@@ -9,7 +9,6 @@ from dotenv import load_dotenv
 import logging
 import shutil
 import re
-from transformers import pipeline
 from deep_translator import GoogleTranslator
 import traceback
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -54,9 +53,6 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # Check if CUDA is available and set the device accordingly
 device = 0 if torch.cuda.is_available() else -1
-
-# Initialize summarizer
-summarizer = pipeline("summarization", model="facebook/bart-large-cnn", device=device)
 
 def get_pdf_text(pdf_docs):
     """Extract text from uploaded PDF documents."""
@@ -202,7 +198,8 @@ def generate_quiz(context):
                         options = question_parts[1:5]
                         correct_answer = question_parts[-1].split(': ')[1].strip()
                         questions.append({
-                            "question": f"{question_text}\n" + "\n".join(options),
+                            "question": question_text,
+                            "options": options,
                             "correct_answer": correct_answer
                         })
                     else:
@@ -219,20 +216,31 @@ def generate_quiz(context):
     return questions
 
 def summarize_document(text):
-    """Summarize the uploaded document."""
+    """Summarize the uploaded document using Gemini API."""
     if not text or len(text) < 30:
         logger.error("Input text is too short for summarization.")
         return "Input text is too short for summarization."
     
     try:
-        # Truncate text if it's too long
-        max_input_length = 1024  # Adjust based on the model's max input length
-        if len(text) > max_input_length:
-            logger.warning(f"Input text truncated from {len(text)} to {max_input_length} characters.")
-            text = text[:max_input_length]
+        model = genai.GenerativeModel('gemini-pro')
+        prompt = f"""
+        Please provide a concise summary of the following text. The summary should capture the main points and key ideas:
 
-        summary = summarizer(text, max_length=1500, min_length=30, do_sample=False)
-        return summary[0]['summary_text']
+        {text}
+
+        Summary:
+        """
+        
+        response = model.generate_content(prompt)
+        
+        if response.candidates:
+            candidate = response.candidates[0]
+            if candidate.content and candidate.content.parts:
+                summary = ' '.join(part.text for part in candidate.content.parts)
+                logger.info(f"Generated summary: {summary}")
+                return summary
+        
+        return "Unable to generate summary."
     except Exception as e:
         logger.error(f"Error during summarization: {str(e)}")
         return f"Error during summarization: {str(e)}"
@@ -248,15 +256,22 @@ def suggest_learning_paths(quiz_performance):
 
 def generate_flashcards(context):
     """Generate flashcards from the document content."""
+    if not context or len(context) < 100:
+        logger.error("Input text is too short for generating flashcards.")
+        return []
+
     model = genai.GenerativeModel('gemini-pro')
     flashcard_prompt = f"""
     Based on the following context, generate 5 flashcards with key terms or concepts and their definitions.
+    Each flashcard should contain a term and its corresponding definition.
     
     Context: {context}
     
     Format each flashcard as follows:
     Term: [Key term or concept]
     Definition: [Concise definition or explanation]
+
+    Please provide exactly 5 flashcards.
     """
     try:
         flashcard_response = model.generate_content(flashcard_prompt)
@@ -268,12 +283,24 @@ def generate_flashcards(context):
                 for card in flashcards_text.split('\n\n'):
                     parts = card.split('\n')
                     if len(parts) == 2:
-                        term = parts[0].split(': ')[1]
-                        definition = parts[1].split(': ')[1]
-                        flashcards.append({"term": term, "definition": definition})
-                return flashcards
+                        term = parts[0].split(': ', 1)[-1].strip()
+                        definition = parts[1].split(': ', 1)[-1].strip()
+                        if term and definition:
+                            flashcards.append({"term": term, "definition": definition})
+                
+                if flashcards:
+                    logger.info(f"Generated {len(flashcards)} flashcards successfully.")
+                    return flashcards
+                else:
+                    logger.error("No valid flashcards were extracted from the response.")
+            else:
+                logger.error("No content in the response from the model.")
+        else:
+            logger.error("No candidates in the response from the model.")
     except Exception as e:
         logger.error(f"Error generating flashcards: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+    
     return []
 
 def translate_text(text, dest_language):
@@ -474,6 +501,22 @@ def main():
     cleanup_old_data()
     st.set_page_config(page_title="AI-Powered Personalized Learning Assistant", layout="wide")
     
+    st.header("AI-Powered Personalized Learning Assistant")
+    
+    # Add this information box below the header
+    st.info("""
+    Welcome to your AI-Powered Learning Assistant! This application helps you:
+    - Upload and process PDF documents
+    - Ask questions about the uploaded content
+    - Take quizzes to test your knowledge
+    - Generate summaries and flashcards
+    - Translate text to different languages
+    - Analyze text complexity and extract key concepts
+    - Convert text to speech (Still Work in Progress)
+    
+    Get started by uploading your documents in the sidebar!
+    """)
+
     with st.sidebar:
         st.header("Document Upload")
         pdf_docs = st.file_uploader("Upload your PDFs", type="pdf", accept_multiple_files=True)
@@ -488,8 +531,6 @@ def main():
                 st.success("Documents processed successfully!")
             else:
                 st.warning("Please upload PDF documents first.")
-
-    st.header("AI-Powered Personalized Learning Assistant")
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -583,30 +624,37 @@ def main():
             question = st.session_state.questions[current_question]
             
             st.write(f"Question {current_question + 1} of {len(st.session_state.questions)}:")
-            st.write(question["question"].split('\n')[0])  # Display only the question text
+            st.write(question["question"])
             
-            options = extract_options(question["question"])
-            selected_option = st.radio("Choose an answer:", options, key=f"q_{current_question}")
+            if "options" in question:
+                options = [opt.split('. ', 1)[1] if '. ' in opt else opt for opt in question["options"]]
+                selected_option = st.radio("Choose an answer:", options, key=f"q_{current_question}")
+            else:
+                st.error("Error: Question options not found. Please regenerate the quiz.")
+                selected_option = None
             
             if st.button("Submit Answer"):
-                correct_answer = question["correct_answer"].strip()[0]  # Extract just the letter
-                correct_option = options[ord(correct_answer) - ord('A')]
-                is_correct = selected_option == correct_option
-                
-                if is_correct:
-                    st.success("Correct!")
-                    st.session_state.score += 1
+                if selected_option is not None:
+                    correct_answer = question["correct_answer"].strip()
+                    correct_option = options[ord(correct_answer) - ord('A')]
+                    is_correct = selected_option == correct_option
+                    
+                    if is_correct:
+                        st.success("Correct!")
+                        st.session_state.score += 1
+                    else:
+                        st.error(f"Incorrect. The correct answer is: {correct_option}")
+                    
+                    st.session_state.current_question += 1
+                    
+                    if st.session_state.current_question < len(st.session_state.questions):
+                        if st.button("Next Question"):
+                            st.rerun()
+                    else:
+                        st.session_state.quiz_state = "finished"
+                    st.rerun()
                 else:
-                    st.error(f"Incorrect. The correct answer is: {correct_option}")
-                
-                st.session_state.current_question += 1
-                
-                if st.session_state.current_question < len(st.session_state.questions):
-                    if st.button("Next Question"):
-                        st.rerun()
-                else:
-                    st.session_state.quiz_state = "finished"
-                st.rerun()
+                    st.warning("Please select an answer before submitting.")
 
         elif st.session_state.quiz_state == "finished":
             st.write(f"Quiz completed! Your score: {st.session_state.score}/{len(st.session_state.questions)}")
@@ -630,10 +678,12 @@ def main():
     elif user_choice == "Generate Flashcards":
         context = st.session_state.get("context", "")
         if context:
-            flashcards = generate_flashcards(context)
+            with st.spinner("Generating flashcards..."):
+                flashcards = generate_flashcards(context)
             if flashcards:
                 st.write("Flashcards:")
-                for card in flashcards:
+                for i, card in enumerate(flashcards, 1):
+                    st.write(f"Flashcard {i}:")
                     st.write(f"Term: {card['term']}")
                     st.write(f"Definition: {card['definition']}")
                     st.write("---")
