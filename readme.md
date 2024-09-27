@@ -4,17 +4,17 @@ Elevate your learning experience with our cutting-edge AI-powered assistant that
 
 ## 🚀 Features
 
-- **Intelligent Document Processing:** Upload and analyze multiple PDF documents with ease.
-- **Interactive Q&A:** Engage in dynamic conversations about your uploaded content.
-- **Adaptive Quiz Generation:** Test your knowledge with automatically generated quizzes.
-- **Smart Summarization:** Get concise overviews of complex documents.
-- **Flashcard Creation:** Generate study aids for efficient revision.
+- **Intelligent Document Processing:** Easily upload and analyze multiple PDF documents.
+- **Interactive Q&A:** Have dynamic conversations about your content.
+- **Adaptive Quiz Generation:** Automatically generate quizzes to test your knowledge.
+- **Smart Summarization:** Receive concise overviews of complex documents.
+- **Flashcard Creation:** Create study aids for efficient revision.
 - **Multilingual Support:** Translate content into various languages.
-- **Document Sharing:** Collaborate by sharing processed documents via email.
-- **Text Complexity Analysis:** Gain insights into the readability of your materials.
-- **Key Concept Extraction:** Identify crucial ideas at a glance.
+- **Document Sharing:** Share processed documents via email.
+- **Text Complexity Analysis:** Understand the readability of your materials.
+- **Key Concept Extraction:** Quickly identify crucial ideas.
 - **Audio Learning:** Convert text to speech for on-the-go studying. (**Coming Soon**)
-- **Progress Tracking:** Maintain a comprehensive chat history of your learning journey.
+- **Progress Tracking:** Keep a comprehensive chat history of your learning journey.
 
 ## 🛠️ Technology Stack
 
