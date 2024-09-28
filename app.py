@@ -26,7 +26,10 @@ import torch
 import requests
 from io import StringIO
 
-# Add this near the top of your script, after the imports
+###################
+# Logging Setup
+###################
+
 class StringIOHandler(logging.Handler):
     def __init__(self):
         logging.Handler.__init__(self)
@@ -45,6 +48,10 @@ logger.setLevel(logging.INFO)
 string_io_handler = StringIOHandler()
 logger.addHandler(string_io_handler)
 
+###################
+# Environment Setup
+###################
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -53,6 +60,10 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # Check if CUDA is available and set the device accordingly
 device = 0 if torch.cuda.is_available() else -1
+
+###################
+# PDF Processing
+###################
 
 def get_pdf_text(pdf_docs):
     """Extract text from uploaded PDF documents."""
@@ -93,6 +104,10 @@ def update_vector_store(text_chunks):
         logger.info(f"Created new FAISS index with {len(text_chunks)} chunks")
     vector_store.save_local("faiss_index")
     logger.info("FAISS index saved locally")
+
+###################
+# AI Response Generation
+###################
 
 def get_gemini_response(question, context):
     """Generate a response to a question based on the provided context."""
@@ -139,17 +154,20 @@ def user_input(user_question):
         logger.error(f"Error in user_input: {str(e)}")
         return {"output_text": f"An error occurred: {str(e)}"}
 
+###################
+# Quiz Generation and Handling
+###################
+
 def extract_options(question_text):
     """Extract answer choices from the generated quiz question."""
     options = re.findall(r'\b[A-D]\.\s(.*?)(?=\n[A-D]\.|\Z)', question_text, re.DOTALL)
     return [option.strip() for option in options]
 
-def display_quiz(questions, current_question):
-    """Display the current quiz question and options."""
-    question = questions[current_question]
+def display_quiz(question):
+    """Display a single quiz question and options."""
     st.write(question["question"])
-    options = extract_options(question["question"])
-    selected_option = st.radio("Choose an answer:", options)
+    options = [opt.split('. ', 1)[-1].strip() for opt in question["options"]]
+    selected_option = st.radio("Choose an answer:", options, key=f"q_{st.session_state.current_question}")
     return selected_option
 
 def check_answer(selected_option, correct_answer):
@@ -167,8 +185,7 @@ def generate_quiz(context):
         logger.error("No context provided for generating quiz.")
         return []
 
-    # Use only the first 1000 characters of the context
-    context = context[:1000]
+    context = context  # Use only the first 1000 characters of the context
 
     questions = []
     model = genai.GenerativeModel('gemini-pro')
@@ -184,6 +201,8 @@ def generate_quiz(context):
     C. [Option C]
     D. [Option D]
     Correct Answer: [A/B/C/D]
+
+    Ensure there is a blank line between each question.
     """
     try:
         logger.info("Sending request to generate quiz questions...")
@@ -198,8 +217,8 @@ def generate_quiz(context):
                 for q in generated_questions:
                     question_parts = q.split('\n')
                     if len(question_parts) >= 6:  # Ensure we have all parts of the question
-                        question_text = question_parts[0].replace('Question: ', '')
-                        options = question_parts[1:5]
+                        question_text = question_parts[0].replace('Question: ', '').strip()
+                        options = [opt.strip() for opt in question_parts[1:5]]
                         correct_answer = question_parts[-1].split(': ')[1].strip()
                         questions.append({
                             "question": question_text,
@@ -218,6 +237,10 @@ def generate_quiz(context):
     
     logger.info(f"Generated {len(questions)} valid questions")
     return questions
+
+###################
+# Document Summarization
+###################
 
 def summarize_document(text):
     """Summarize the uploaded document using Gemini API."""
@@ -249,6 +272,10 @@ def summarize_document(text):
         logger.error(f"Error during summarization: {str(e)}")
         return f"Error during summarization: {str(e)}"
 
+###################
+# Learning Path Suggestion
+###################
+
 def suggest_learning_paths(quiz_performance):
     """Suggest personalized learning paths based on quiz performance."""
     if quiz_performance > 80:
@@ -257,6 +284,10 @@ def suggest_learning_paths(quiz_performance):
         return "You're making good progress. Focus on reviewing the topics you found challenging and practice with more examples."
     else:
         return "It seems you might need more practice. Consider revisiting the fundamental concepts and try breaking down complex topics into smaller, manageable parts."
+
+###################
+# Flashcard Generation
+###################
 
 def generate_flashcards(context):
     """Generate flashcards from the document content."""
@@ -322,6 +353,10 @@ def generate_flashcards(context):
     # Fallback: If we reach here, something unexpected happened
     return [], "Unexpected error occurred during flashcard generation."
 
+###################
+# Text Translation
+###################
+
 def translate_text(text, dest_language):
     """Translate text to the specified language using deep_translator."""
     if not text:
@@ -354,6 +389,10 @@ def translate_text(text, dest_language):
         logger.error(f"Traceback: {traceback.format_exc()}")
         return f"Error during translation process: {str(e)}"
 
+###################
+# Document Sharing
+###################
+
 def share_document(context, recipient_email):
     """Share document with another user via email."""
     sender_email = os.getenv("EMAIL_ADDRESS")
@@ -375,6 +414,10 @@ def share_document(context, recipient_email):
     except Exception as e:
         logger.error(f"Error sharing document: {str(e)}")
         return f"Error sharing document: {str(e)}"
+
+###################
+# Text Complexity Analysis
+###################
 
 def analyze_text_complexity(text):
     """Analyze the complexity of the text."""
@@ -430,6 +473,10 @@ def visualize_text_complexity(complexity_data):
     plt.tight_layout()
     st.pyplot(fig)
 
+###################
+# Key Concept Extraction
+###################
+
 def extract_key_concepts(text):
     """Extract key concepts from the text using TF-IDF."""
     vectorizer = TfidfVectorizer(stop_words='english', max_features=10)
@@ -438,6 +485,10 @@ def extract_key_concepts(text):
     tfidf_scores = tfidf_matrix.toarray()[0]
     key_concepts = sorted(zip(feature_names, tfidf_scores), key=lambda x: x[1], reverse=True)
     return key_concepts
+
+###################
+# Text-to-Speech Conversion
+###################
 
 def text_to_speech(text, max_retries=3):
     """Convert text to speech using gTTS with chunking and retries."""
@@ -633,37 +684,30 @@ def main():
             question = st.session_state.questions[current_question]
             
             st.write(f"Question {current_question + 1} of {len(st.session_state.questions)}:")
-            st.write(question["question"])
-            
-            if "options" in question:
-                options = [opt.split('. ', 1)[1] if '. ' in opt else opt for opt in question["options"]]
-                selected_option = st.radio("Choose an answer:", options, key=f"q_{current_question}")
-            else:
-                st.error("Error: Question options not found. Please regenerate the quiz.")
-                selected_option = None
+            selected_option = display_quiz(question)
             
             if st.button("Submit Answer"):
-                if selected_option is not None:
-                    correct_answer = question["correct_answer"].strip()
-                    correct_option = options[ord(correct_answer) - ord('A')]
-                    is_correct = selected_option == correct_option
-                    
-                    if is_correct:
-                        st.success("Correct!")
-                        st.session_state.score += 1
-                    else:
-                        st.error(f"Incorrect. The correct answer is: {correct_option}")
-                    
-                    st.session_state.current_question += 1
-                    
-                    if st.session_state.current_question < len(st.session_state.questions):
-                        if st.button("Next Question"):
-                            st.rerun()
-                    else:
-                        st.session_state.quiz_state = "finished"
-                    st.rerun()
+                correct_answer = question["correct_answer"].strip()
+                correct_option_index = ord(correct_answer) - ord('A')
+                correct_option_full = question["options"][correct_option_index]
+                correct_option = correct_option_full.split('. ', 1)[-1].strip()
+                
+                is_correct = selected_option.strip() == correct_option
+                
+                if is_correct:
+                    st.success("Correct!")
+                    st.session_state.score += 1
                 else:
-                    st.warning("Please select an answer before submitting.")
+                    st.error(f"Incorrect. The correct answer is: {correct_option}")
+                
+                st.session_state.current_question += 1
+                
+                if st.session_state.current_question < len(st.session_state.questions):
+                    if st.button("Next Question"):
+                        st.rerun()
+                else:
+                    st.session_state.quiz_state = "finished"
+                st.rerun()
 
         elif st.session_state.quiz_state == "finished":
             st.write(f"Quiz completed! Your score: {st.session_state.score}/{len(st.session_state.questions)}")
