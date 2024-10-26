@@ -97,13 +97,14 @@ def update_vector_store(text_chunks):
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
     if os.path.exists("faiss_index"):
         vector_store = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
-        vector_store.add_texts(text_chunks[-100:])  # Only add the last 100 chunks
-        logger.info(f"Updated existing FAISS index with {len(text_chunks)} new chunks")
+        vector_store.add_texts(text_chunks)
+        logger.info("Added new text chunks to existing FAISS index.")
     else:
-        vector_store = FAISS.from_texts(text_chunks[-100:], embedding=embeddings)
-        logger.info(f"Created new FAISS index with {len(text_chunks)} chunks")
+        vector_store = FAISS.from_texts(text_chunks, embeddings)
+        logger.info("Created new FAISS index from text chunks.")
+    
     vector_store.save_local("faiss_index")
-    logger.info("FAISS index saved locally")
+    logger.info("FAISS index saved locally.")
 
 ###################
 # AI Response Generation
@@ -111,7 +112,7 @@ def update_vector_store(text_chunks):
 
 def get_gemini_response(question, context):
     """Generate a response to a question based on the provided context."""
-    model = genai.GenerativeModel('gemini-pro')
+    model = genai.GenerativeModel('gemini-1.5-flash-002')
     prompt = f"""
     Answer the question as detailed as possible from the provided context. Make sure to provide all the details.
     If the answer is not in the provided context, just say, "Answer is not available in the context." Don't provide a wrong answer.
@@ -147,7 +148,7 @@ def user_input(user_question):
         new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
         docs = new_db.similarity_search(user_question, k=2)
         context = "\n".join([doc.page_content for doc in docs])
-        logger.info(f"Retrieved context: {context[:100]}...")
+        logger.info(f"Retrieved context: {context[:100000]}...")
         response = get_gemini_response(user_question, context)
         return {"output_text": response}
     except Exception as e:
@@ -188,7 +189,7 @@ def generate_quiz(context):
     context = context  # Use only the first 1000 characters of the context
 
     questions = []
-    model = genai.GenerativeModel('gemini-pro')
+    model = genai.GenerativeModel('gemini-1.5-flash-002')
     question_prompt = f"""
     Based on the following context, generate a list of 5 concise multiple-choice questions with four options each. For each question, also provide the correct answer.
     
@@ -249,7 +250,7 @@ def summarize_document(text):
         return "Input text is too short for summarization."
     
     try:
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-1.5-flash-002')
         prompt = f"""
         Please provide a concise summary of the following text. The summary should capture the main points and key ideas:
 
@@ -295,7 +296,7 @@ def generate_flashcards(context):
         logger.error("Input text is too short for generating flashcards.")
         return [], "Input text is too short."
 
-    model = genai.GenerativeModel('gemini-pro')
+    model = genai.GenerativeModel('gemini-1.5-flash-002')
     flashcard_prompt = f"""
     Based on the following context, generate 5 flashcards with key terms or concepts and their definitions.
     Each flashcard should contain a term and its corresponding definition.
