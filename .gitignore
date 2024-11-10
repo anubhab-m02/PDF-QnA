@@ -1,5 +1,23 @@
+# Environment
 .env
-venv
-faiss_index
+venv/
+__pycache__/
 python==3.11
+*.pyc
+
+# Data
+faiss_index/
+*.mp3
+*.pdf
+
+# System
 .DS_Store
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# Temp files
+*.tmp
+python==3.11
