@@ -110,13 +110,38 @@ def quiz_interface():
 def flashcard_interface():
     st.header("Flashcards")
     if "context" in st.session_state:
-        flashcards, error = flashcard_service.generate_flashcards(st.session_state.context)
-        if error:
-            st.error(error)
-        else:
-            for card in flashcards:
+        # Initialize flashcard generation counter if it doesn't exist
+        if "flashcard_gen_count" not in st.session_state:
+            st.session_state.flashcard_gen_count = 0
+        
+        # Generate flashcards if they don't exist
+        if "flashcards" not in st.session_state:
+            with st.spinner("Generating flashcards..."):
+                # Pass the counter to ensure different generations
+                flashcards, error = flashcard_service.generate_flashcards(
+                    st.session_state.context, 
+                    iteration=st.session_state.flashcard_gen_count
+                )
+                if not error:
+                    st.session_state.flashcards = flashcards
+                else:
+                    st.error(error)
+                    return
+        
+        # Display flashcards
+        if "flashcards" in st.session_state:
+            for card in st.session_state.flashcards:
                 with st.expander(card["term"]):
                     st.write(card["definition"])
+        
+        # Always show regenerate button if we have context
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("Regenerate Flashcards", use_container_width=True):
+                # Increment the counter before regenerating
+                st.session_state.flashcard_gen_count += 1
+                del st.session_state.flashcards
+                st.rerun()
     else:
         st.warning("Please upload and process documents first.")
 

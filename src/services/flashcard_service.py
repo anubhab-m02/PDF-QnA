@@ -5,7 +5,7 @@ import google.generativeai as genai
 import traceback
 
 class FlashcardService:
-    def generate_flashcards(self, context):
+    def generate_flashcards(self, context, iteration=0):
         """Generate flashcards from the document content."""
         if not context or len(context) < 100:
             logger.error("Input text is too short for generating flashcards.")
@@ -13,8 +13,10 @@ class FlashcardService:
 
         model = genai.GenerativeModel('gemini-1.5-flash-002')
         flashcard_prompt = f"""
-        Based on the following context, generate 5 flashcards with key terms or concepts and their definitions.
+        Based on the following context, generate 5 different flashcards with key terms or concepts and their definitions.
         Each flashcard should contain a term and its corresponding definition.
+        Make sure to generate different flashcards than previous attempts (this is attempt #{iteration}).
+        Focus on different aspects of the content for variety.
         
         Context: {context}
         
@@ -65,22 +67,6 @@ class FlashcardService:
             logger.error(error_msg)
             logger.error(f"Traceback: {traceback.format_exc()}")
             return [], error_msg
-
-def flashcard_interface():
-    """Interface for flashcard generation and display."""
-    import streamlit as st
-    
-    st.header("Flashcards")
-    if "context" in st.session_state:
-        flashcards, error = flashcard_service.generate_flashcards(st.session_state.context)
-        if error:
-            st.error(error)
-        else:
-            for card in flashcards:
-                with st.expander(card["term"]):
-                    st.write(card["definition"])
-    else:
-        st.warning("Please upload and process documents first.")
 
 # Create singleton instance
 flashcard_service = FlashcardService()

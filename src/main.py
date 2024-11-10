@@ -19,7 +19,7 @@ from config.settings import GOOGLE_API_KEY
 from services.document_processor import get_pdf_text, get_text_chunks, update_vector_store
 from services.ai_service import ai_service
 from services.quiz_service import quiz_service
-from services.flashcard_service import flashcard_service, flashcard_interface
+from services.flashcard_service import flashcard_service
 from services.translation_service import translation_service
 from services.sharing_service import sharing_service
 from services.text_complexity_service import analyze_text_complexity, visualize_text_complexity
