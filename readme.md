@@ -5,8 +5,8 @@ Elevate your learning experience with our cutting-edge AI-powered assistant that
 ## 🚀 Features
 
 - **Intelligent Document Processing:** Easily upload and analyze multiple PDF documents.
-- **Interactive Q&A:** Have dynamic conversations about your content.
-- **Adaptive Quiz Generation:** Automatically generate quizzes to test your knowledge.
+- **Interactive Q&A:** Have dynamic conversations about your content. 
+- **Adaptive Quiz Generation:** Automatically generate quizzes to test your knowledge.(**Still glitchy, working on fixes!!**)
 - **Smart Summarization:** Receive concise overviews of complex documents.
 - **Flashcard Creation:** Create study aids for efficient revision.
 - **Multilingual Support:** Translate content into various languages.
