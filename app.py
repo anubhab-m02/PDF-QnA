@@ -19,6 +19,8 @@ import seaborn as sns
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders
 from gtts import gTTS
 import os
 import time
@@ -68,8 +70,8 @@ device = 0 if torch.cuda.is_available() else -1
 def get_pdf_text(pdf_docs):
     """Extract text from uploaded PDF documents."""
     text = ""
-    max_pages = 10  # Limit to first 10 pages per document
-    max_chars = 100000  # Limit to 100,000 characters total
+    max_pages = 1000  # Limit to first 1000 pages per document
+    max_chars = 100000000  # Limit to 100,000,000 characters total
 
     for pdf in pdf_docs:
         pdf_reader = PdfReader(pdf)
@@ -148,7 +150,7 @@ def user_input(user_question):
         new_db = FAISS.load_local("faiss_index", embeddings, allow_dangerous_deserialization=True)
         docs = new_db.similarity_search(user_question, k=2)
         context = "\n".join([doc.page_content for doc in docs])
-        logger.info(f"Retrieved context: {context[:100000]}...")
+        logger.info(f"Retrieved context: {context}...")
         response = get_gemini_response(user_question, context)
         return {"output_text": response}
     except Exception as e:
@@ -394,27 +396,42 @@ def translate_text(text, dest_language):
 # Document Sharing
 ###################
 
-def share_document(context, recipient_email):
-    """Share document with another user via email."""
+def share_document(pdf_docs, recipient_email):
+    """Share PDF documents with another user via email."""
     sender_email = os.getenv("EMAIL_ADDRESS")
     password = os.getenv("EMAIL_APP_PASSWORD")
 
     message = MIMEMultipart()
     message["From"] = sender_email
     message["To"] = recipient_email
-    message["Subject"] = "Shared Document"
+    message["Subject"] = "Shared Documents from AI Learning Assistant"
 
-    body = f"Here's the shared document:\n\n{context[:1000]}..."  # Truncate if too long
+    # Add body text
+    body = "Here are the documents shared with you from the AI Learning Assistant."
     message.attach(MIMEText(body, "plain"))
+
+    # Attach PDF files
+    for pdf in pdf_docs:
+        pdf.seek(0)  # Reset file pointer to beginning
+        part = MIMEBase("application", "octet-stream")
+        part.set_payload(pdf.read())
+        encoders.encode_base64(part)
+        
+        # Add header with PDF filename
+        part.add_header(
+            "Content-Disposition",
+            f"attachment; filename= {pdf.name}",
+        )
+        message.attach(part)
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(sender_email, password)
             server.send_message(message)
-        return f"Document shared successfully with {recipient_email}"
+        return f"Documents shared successfully with {recipient_email}"
     except Exception as e:
-        logger.error(f"Error sharing document: {str(e)}")
-        return f"Error sharing document: {str(e)}"
+        logger.error(f"Error sharing documents: {str(e)}")
+        return f"Error sharing documents: {str(e)}"
 
 ###################
 # Text Complexity Analysis
@@ -594,6 +611,7 @@ def main():
         if st.button("Process Documents"):
             if pdf_docs:
                 with st.spinner("Processing documents..."):
+                    st.session_state.pdf_docs = pdf_docs  # Store PDFs in session state
                     raw_text = get_pdf_text(pdf_docs)
                     text_chunks = get_text_chunks(raw_text)
                     update_vector_store(text_chunks)
@@ -784,18 +802,35 @@ def main():
             st.error("No context available. Please upload and process documents first.")
 
     elif user_choice == "Share Document":
-        context = st.session_state.get("context", "")
-        if context:
-            recipient_email = st.text_input("Enter recipient email:")
-            if st.button("Share"):
-                with st.spinner("Sharing document..."):
-                    result = share_document(context, recipient_email)
-                    if "successfully" in result:
-                        st.success(result)
-                    else:
-                        st.error(result)
-        else:
-            st.error("No context available. Please upload and process documents first.")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader("Share Chat History")
+            if st.session_state.messages:
+                recipient_email = st.text_input("Enter recipient email:", key="chat_history_email")
+                if st.button("Share Chat History", key="share_chat"):
+                    with st.spinner("Sharing chat history..."):
+                        result = send_chat_history(st.session_state.messages, recipient_email)
+                        if "successfully" in result:
+                            st.success(result)
+                        else:
+                            st.error(result)
+            else:
+                st.warning("No chat history available. Please have a conversation first.")
+
+        with col2:
+            st.subheader("Share Document")
+            if "pdf_docs" in st.session_state and st.session_state.pdf_docs:
+                recipient_email = st.text_input("Enter recipient email:", key="document_email")
+                if st.button("Share Document", key="share_doc"):
+                    with st.spinner("Sharing document..."):
+                        result = share_document(st.session_state.pdf_docs, recipient_email)
+                        if "successfully" in result:
+                            st.success(result)
+                        else:
+                            st.error(result)
+            else:
+                st.error("No documents available. Please upload PDF files first.")
 
     elif user_choice == "Analyze Text Complexity":
         context = st.session_state.get("context", "")
