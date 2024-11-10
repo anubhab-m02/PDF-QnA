@@ -115,18 +115,7 @@ def main():
         translation_interface()
 
     elif user_choice == "Share Document":
-        share_document = st.button("Share Document")
-        if share_document:
-            recipient_email = st.text_input("Enter recipient email:")
-            if recipient_email:
-                with st.spinner("Sharing document..."):
-                    result = sharing_service.send_document(st.session_state.pdf_docs, recipient_email)
-                    if "successfully" in result:
-                        st.success(result)
-                    else:
-                        st.error(result)
-            else:
-                st.warning("Please enter a valid email address.")
+        sharing_interface()
 
     elif user_choice == "Analyze Text Complexity":
         analysis_interface()

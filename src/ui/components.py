@@ -146,15 +146,37 @@ def analysis_interface():
     else:
         st.warning("Please upload and process documents first.")
 
-def sharing_interface(uploaded_files):
-    st.header("Share Documents")
-    if uploaded_files:
-        email = st.text_input("Enter recipient email:")
-        if st.button("Share") and email:
-            result = sharing_service.send_chat_history(st.session_state.messages, email)
-            st.write(result)
-    else:
-        st.warning("Please upload documents first.")
+def sharing_interface():
+    st.header("Share")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("Share Chat History")
+        if st.session_state.messages:
+            recipient_email = st.text_input("Enter recipient email:", key="chat_history_email")
+            if st.button("Share Chat History", key="share_chat"):
+                with st.spinner("Sharing chat history..."):
+                    result = send_chat_history(st.session_state.messages, recipient_email)
+                    if "successfully" in result:
+                        st.success(result)
+                    else:
+                        st.error(result)
+        else:
+            st.warning("No chat history available. Please have a conversation first.")
+
+    with col2:
+        st.subheader("Share Document")
+        if "pdf_docs" in st.session_state and st.session_state.pdf_docs:
+            recipient_email = st.text_input("Enter recipient email:", key="document_email")
+            if st.button("Share Document", key="share_doc"):
+                with st.spinner("Sharing document..."):
+                    result = share_document(st.session_state.pdf_docs, recipient_email)
+                    if "successfully" in result:
+                        st.success(result)
+                    else:
+                        st.error(result)
+        else:
+            st.error("No documents available. Please upload PDF files first.")
 
 def audio_interface():
     st.header("Audio Learning")
