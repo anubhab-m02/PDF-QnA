@@ -7,7 +7,7 @@ from config.settings import GOOGLE_API_KEY
 class AIService:
     def get_gemini_response(self, question, context):
         """Generate a response to a question based on the provided context."""
-        model = genai.GenerativeModel('gemini-1.5-flash-002')
+        model = genai.GenerativeModel('gemini-2.0-flash')
         prompt = f"""
         Answer the question as detailed as possible from the provided context. Make sure to provide all the details.
         If the answer is not in the provided context, just say, "Answer is not available in the context." Don't provide a wrong answer.

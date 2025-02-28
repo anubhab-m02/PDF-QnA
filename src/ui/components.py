@@ -1,4 +1,5 @@
 import streamlit as st
+import os
 from services.document_processor import get_pdf_text, get_text_chunks, update_vector_store
 from services.ai_service import ai_service
 from services.quiz_service import quiz_service
@@ -11,9 +12,13 @@ from services.text_summary_service import summarize_document
 from services.text_translation_service import TranslationService
 from services.speech_service import speech_service
 from utils.logging_config import logger
+from ui.profile_components import profile_button
 
 def sidebar_components():
     with st.sidebar:
+        # Profile button at the top of sidebar
+        profile_button()
+        
         st.header("Document Upload")
         pdf_docs = st.file_uploader("Upload your PDFs", type="pdf", accept_multiple_files=True)
         if st.button("Process Documents"):
@@ -64,7 +69,7 @@ def quiz_interface():
                     st.session_state.questions = questions
                     st.session_state.quiz_state = "in_progress"
                     # Simulate rerun by using a state toggle
-                    st.experimental_set_query_params(rerun="true")
+                    st.query_params["rerun"] = "true"
                 else:
                     st.warning("Failed to generate quiz questions. Please try again.")
             else:
@@ -88,11 +93,11 @@ def quiz_interface():
                         st.error(f"Incorrect. The correct answer was {question['correct_answer']}.")
                     st.session_state.current_question += 1
                     # Simulate rerun by using a state toggle
-                    st.experimental_set_query_params(rerun="true")
+                    st.query_params["rerun"] = "true"
         else:
             st.session_state.quiz_state = "finished"
             # Simulate rerun by using a state toggle
-            st.experimental_set_query_params(rerun="true")
+            st.query_params["rerun"] = "true"
 
     elif st.session_state.quiz_state == "finished":
         st.write(f"**Quiz completed! Your score: {st.session_state.score}/{len(st.session_state.questions)}**")
@@ -105,7 +110,7 @@ def quiz_interface():
             st.session_state.score = 0
             st.session_state.current_question = 0
             # Simulate rerun by using a state toggle
-            st.experimental_set_query_params(rerun="true")
+            st.query_params["rerun"] = "true"
 
 def flashcard_interface():
     st.header("Flashcards")
@@ -181,7 +186,7 @@ def sharing_interface():
             recipient_email = st.text_input("Enter recipient email:", key="chat_history_email")
             if st.button("Share Chat History", key="share_chat"):
                 with st.spinner("Sharing chat history..."):
-                    result = send_chat_history(st.session_state.messages, recipient_email)
+                    result = sharing_service.send_chat_history(st.session_state.messages, recipient_email)
                     if "successfully" in result:
                         st.success(result)
                     else:
@@ -195,7 +200,7 @@ def sharing_interface():
             recipient_email = st.text_input("Enter recipient email:", key="document_email")
             if st.button("Share Document", key="share_doc"):
                 with st.spinner("Sharing document..."):
-                    result = share_document(st.session_state.pdf_docs, recipient_email)
+                    result = sharing_service.share_document(st.session_state.pdf_docs, recipient_email)
                     if "successfully" in result:
                         st.success(result)
                     else:
