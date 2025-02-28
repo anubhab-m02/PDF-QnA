@@ -51,8 +51,8 @@ def profile_button():
         profile_container.markdown(
             f"""
             <div style="text-align: center; margin-bottom: 10px;">
-                <div style="display: inline-block; background-color: #f0f2f6; border-radius: 50%; width: 40px; height: 40px; 
-                     line-height: 40px; text-align: center; margin-right: 10px; font-size: 20px;">
+                <div style="display: inline-block; border-radius: 50%; width: 40px; height: 40px; 
+                     line-height: 40px; text-align: center; margin-right: 10px; font-size: 20px; border: 1px solid #ddd;">
                     👤
                 </div>
                 <span style="font-weight: bold; font-size: 16px;">{username}</span>
@@ -62,8 +62,10 @@ def profile_button():
         )
         
         # Add the actual button but make it look like a link
-        if profile_container.button("View Profile", key="profile_btn", type="primary"):
-            st.session_state.show_profile = True
+        col1, col2, col3 = profile_container.columns([1, 2, 1])
+        with col2:
+            if st.button("View Profile", key="profile_btn", type="primary", use_container_width=True):
+                st.session_state.show_profile = True
             
         profile_container.markdown("---")  # Add a separator line
 
@@ -76,13 +78,13 @@ def profile_page():
     st.markdown(
         f"""
         <div style="display: flex; align-items: center; margin-bottom: 20px;">
-            <div style="background-color: #f0f2f6; border-radius: 50%; width: 80px; height: 80px; 
+            <div style="border-radius: 50%; width: 80px; height: 80px; border: 1px solid #ddd;
                  line-height: 80px; text-align: center; margin-right: 20px; font-size: 40px;">
                 👤
             </div>
             <div>
                 <h1 style="margin-bottom: 0;">{username}</h1>
-                <p style="color: #666; margin-top: 0;">User Profile</p>
+                <p style="margin-top: 0;">User Profile</p>
             </div>
         </div>
         """, 
@@ -113,24 +115,21 @@ def profile_page():
         projects = profile_service.get_user_projects(username)
         
         if not projects:
-            st.info("You haven't saved any chat sessions yet.")
-            st.markdown("""
-            <div style="text-align: center; padding: 30px; color: #666;">
-                <div style="font-size: 40px; margin-bottom: 10px;">📝</div>
-                <p>Your saved chat sessions will appear here.</p>
-            </div>
-            """, unsafe_allow_html=True)
+            # Display a message if no projects are found
+            st.info("No saved chat sessions found.")
         else:
             # Create a more organized display for projects
             for i, project in enumerate(projects):
-                project_id, project_name, timestamp = project
+                project_id = project[0]
+                project_name = project[1]
+                timestamp = project[2] if len(project) > 2 else "Unknown"
                 
                 # Create a card-like appearance for each project
                 st.markdown(
                     f"""
                     <div style="border: 1px solid #ddd; border-radius: 5px; padding: 10px; margin-bottom: 10px;">
                         <h3 style="margin-top: 0;">{project_name}</h3>
-                        <p style="color: #666; font-size: 14px;">Created: {timestamp}</p>
+                        <p style="font-size: 14px;">Created: {timestamp}</p>
                     </div>
                     """, 
                     unsafe_allow_html=True
@@ -138,15 +137,15 @@ def profile_page():
                 
                 # Create an expander for the chat content
                 with st.expander("View Chat Content"):
-                    # Get the chat content
+                    # Get the chat content for this project
                     chat_content = profile_service.get_chat_history(project_id)
                     if chat_content:
                         try:
                             chat_data = json.loads(chat_content)
                             
                             # Display a preview of the chat
-                            for i, message in enumerate(chat_data):
-                                if i < 3:  # Show only first 3 messages as preview
+                            for j, message in enumerate(chat_data):
+                                if j < 3:  # Show only first 3 messages as preview
                                     st.write(f"**{message['role'].capitalize()}**: {message['content'][:150]}..." if len(message['content']) > 150 else f"**{message['role'].capitalize()}**: {message['content']}")
                             
                             if len(chat_data) > 3:
@@ -155,17 +154,16 @@ def profile_page():
                             # Action buttons
                             col1, col2 = st.columns(2)
                             with col1:
-                                if st.button("Load Chat", key=f"load_{project_id}", type="primary"):
-                                    st.session_state.messages = chat_data
-                                    st.session_state.show_profile = False
+                                if st.button("Delete", key=f"delete_{i}"):
+                                    profile_service.delete_project(project_id)
+                                    st.success(f"Deleted chat: {project_name}")
                                     st.rerun()
                             with col2:
-                                if st.button("Delete", key=f"delete_{project_id}", type="secondary"):
-                                    if profile_service.delete_project(project_id):
-                                        st.success("Project deleted successfully!")
-                                        st.rerun()
-                                    else:
-                                        st.error("Failed to delete project.")
+                                if st.button("Load", key=f"load_{i}"):
+                                    st.session_state.messages = chat_data
+                                    st.session_state.show_profile = False
+                                    st.success(f"Loaded chat: {project_name}")
+                                    st.rerun()
                         except Exception as e:
                             from utils.logging_config import logger
                             logger.error(f"Error displaying chat history: {str(e)}")
@@ -187,7 +185,7 @@ def profile_page():
 
 def save_current_chat():
     """Save the current chat session."""
-    if 'messages' in st.session_state and st.session_state.messages:
+    if 'messages' in st.session_state and len(st.session_state.messages) > 0:
         st.markdown("""
         <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-top: 30px;">
             <h2>Save Your Chat Session</h2>
@@ -201,16 +199,13 @@ def save_current_chat():
             default_name = f"Chat about {', '.join(pdf_names[:2])}"
             if len(pdf_names) > 2:
                 default_name += f" and {len(pdf_names) - 2} more"
-        
-        # Add timestamp to make the name unique
-        import datetime
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
         default_name = f"{default_name} ({timestamp})"
         
         # Create a form-like appearance
         st.markdown("""
-        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-            <p style="margin-bottom: 10px; color: #666;">Give your chat session a name to easily find it later.</p>
+        <div style="padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #ddd;">
+            <p style="margin-bottom: 10px;">Give your chat session a name to easily find it later.</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -239,7 +234,7 @@ def save_current_chat():
         if len(st.session_state.messages) > preview_count:
             st.markdown(
                 f"""
-                <div style="text-align: center; padding: 10px; color: #666;">
+                <div style="text-align: center; padding: 10px;">
                     <em>...and {len(st.session_state.messages) - preview_count} more messages</em>
                 </div>
                 """, 
@@ -253,16 +248,10 @@ def save_current_chat():
             chat_content = json.dumps(st.session_state.messages)
             username = st.session_state.get('username', '')
             
-            if username and profile_service.save_chat_history(username, project_name, chat_content):
-                st.success("Chat history saved successfully!")
-                
-                # Generate a new chat ID for future auto-saves
-                import time
-                st.session_state.current_chat_id = f"chat_{int(time.time())}"
-                
-                # Show a view profile button
-                if st.button("View in Profile", type="secondary"):
-                    st.session_state.show_profile = True
-                    st.rerun()
+            if username:
+                profile_service.save_chat_history(username, project_name, chat_content)
+                st.success(f"Chat saved as: {project_name}")
             else:
-                st.error("Failed to save chat history. Make sure you're logged in.")
+                st.error("You must be logged in to save chat history.")
+    else:
+        st.info("No chat messages to save. Start a conversation first!")

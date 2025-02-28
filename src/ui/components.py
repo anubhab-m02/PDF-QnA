@@ -21,7 +21,7 @@ def sidebar_components():
             """
             <div style="text-align: center; margin-bottom: 20px;">
                 <h1 style="font-size: 24px; margin-bottom: 0;">📚 Learning Assistant</h1>
-                <p style="font-size: 14px; color: #666;">Your AI Study Companion</p>
+                <p style="font-size: 14px;">Your AI Study Companion</p>
             </div>
             """, 
             unsafe_allow_html=True
@@ -45,7 +45,7 @@ def sidebar_components():
         # Add a description
         st.markdown(
             """
-            <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
+            <p style="font-size: 14px; margin-bottom: 15px;">
                 Upload your PDF documents to start learning and asking questions.
             </p>
             """, 
@@ -103,7 +103,7 @@ def sidebar_components():
         st.markdown("<hr style='margin-top: 20px; margin-bottom: 20px;'>", unsafe_allow_html=True)
         st.markdown(
             """
-            <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #888;">
+            <div style="text-align: center; margin-top: 20px; font-size: 12px;">
                 <p>AI-Powered Learning Assistant</p>
                 <p>Version 1.0</p>
             </div>
@@ -122,7 +122,7 @@ def chat_interface():
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    if prompt := st.chat_input("Ask a question about your documents:"):
+    if prompt := st.text_input("Ask a question about your documents:"):
         st.session_state.messages.append({"role": "user", "content": prompt})
         if os.path.exists("faiss_index"):
             with st.spinner("Generating response..."):
@@ -159,7 +159,7 @@ def quiz_interface():
             question = st.session_state.questions[current_question]
             st.write(f"**Question {current_question + 1}:** {question['question']}")
             options = question['options']
-            selected_option = st.radio("Choose an answer:", options, key=f"q_{current_question}")
+            selected_option = st.selectbox("Choose an answer:", options, key=f"q_{current_question}")
 
             if st.button("Submit Answer"):
                 if selected_option:

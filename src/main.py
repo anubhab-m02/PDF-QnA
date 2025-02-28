@@ -1,6 +1,5 @@
 import streamlit as st
 from dotenv import load_dotenv
-import json
 from ui.components import (
     sidebar_components,
     chat_interface,
@@ -65,27 +64,24 @@ def main():
         profile_page()
         return
     
-    # Create a more attractive header
     st.markdown(
         """
-        <div style="text-align: center; padding: 20px 0; margin-bottom: 20px; background-color: #f8f9fa; border-radius: 10px;">
-            <h1 style="color: #0068c9; margin-bottom: 10px;">AI-Powered Learning Assistant</h1>
-            <p style="font-size: 16px; color: #666;">Your personalized study companion for document-based learning</p>
+        <div style="text-align: center; padding: 20px 0; margin-bottom: 20px; border-radius: 10px;">
+            <h1 style="margin-bottom: 10px;">AI-Powered Learning Assistant</h1>
+            <p style="font-size: 16px;">Your personalized study companion for document-based learning</p>
         </div>
         """, 
         unsafe_allow_html=True
     )
     
-    # Create a more organized layout with tabs for different functions
-    tab1, tab2, tab3, tab4 = st.tabs(["📚 Learn", "🧠 Test Knowledge", "🔍 Analyze", "🔄 Tools"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Learn", "Test Knowledge", "Analyze", "Tools"])
     
     with tab1:
-        # Learn tab - Chat, Summarize, Flashcards
         st.markdown(
             """
             <div style="margin-bottom: 20px;">
                 <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 10px;">Learn from Your Documents</h2>
-                <p style="color: #666;">Ask questions, get summaries, and create flashcards from your uploaded documents.</p>
+                <p>Ask questions, get summaries, and create flashcards from your uploaded documents.</p>
             </div>
             """, 
             unsafe_allow_html=True
@@ -97,30 +93,25 @@ def main():
             horizontal=True
         )
         
-        # Initialize messages if not in session state
         if "messages" not in st.session_state:
             st.session_state.messages = []
         
-        # Display chat interface
         if learn_option == "Ask a question":
             chat_container = st.container()
             with chat_container:
-                # Add a stylish chat container
                 st.markdown(
                     """
                     <div style="margin-bottom: 10px;">
-                        <h3 style="font-size: 18px; font-weight: bold;">💬 Chat with your Documents</h3>
+                        <h3 style="font-size: 18px; font-weight: bold;">Chat with your Documents</h3>
                     </div>
                     """, 
                     unsafe_allow_html=True
                 )
                 
-                # Display chat messages
                 for message in st.session_state.messages:
                     with st.chat_message(message["role"]):
                         st.markdown(message["content"])
             
-            # Chat input
             if prompt := st.chat_input("Ask a question about your documents:"):
                 st.session_state.messages.append({"role": "user", "content": prompt})
                 
@@ -133,7 +124,6 @@ def main():
                         response = ai_service.user_input(prompt)
                         st.session_state.messages.append({"role": "assistant", "content": response['output_text']})
                         
-                        # Auto-save chat history
                         if 'username' in st.session_state and st.session_state.username:
                             if 'current_chat_id' not in st.session_state:
                                 import time
@@ -144,7 +134,6 @@ def main():
                                 from ui.profile_components import profile_service
                                 chat_content = json.dumps(st.session_state.messages)
                                 
-                                # Generate a default project name based on PDFs
                                 default_name = "Chat Session"
                                 if 'pdf_docs' in st.session_state and st.session_state.pdf_docs:
                                     pdf_names = [pdf.name for pdf in st.session_state.pdf_docs]
@@ -152,7 +141,6 @@ def main():
                                     if len(pdf_names) > 2:
                                         default_name += f" and {len(pdf_names) - 2} more"
                                 
-                                # Add timestamp
                                 import datetime
                                 timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
                                 project_name = f"{default_name} ({timestamp})"
@@ -169,8 +157,8 @@ def main():
             st.markdown(
                 """
                 <div style="margin-bottom: 10px;">
-                    <h3 style="font-size: 18px; font-weight: bold;">📝 Document Summary</h3>
-                    <p style="color: #666;">Get a concise summary of your uploaded documents.</p>
+                    <h3 style="font-size: 18px; font-weight: bold;">Document Summary</h3>
+                    <p>Get a concise summary of your uploaded documents.</p>
                 </div>
                 """, 
                 unsafe_allow_html=True
@@ -181,12 +169,11 @@ def main():
                 with st.spinner("Generating summary..."):
                     summary = summarize_document(context)
                 
-                # Display summary in a card-like container
                 st.markdown(
                     f"""
-                    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px; margin-top: 20px;">
-                        <h4 style="margin-bottom: 10px;">Document Summary:</h4>
-                        <p style="line-height: 1.6;">{summary}</p>
+                    <div style="padding: 20px; border-radius: 10px; margin-top: 20px; border: 1px solid #ddd;">
+                        <h4>Document Summary:</h4>
+                        <p>{summary}</p>
                     </div>
                     """, 
                     unsafe_allow_html=True
@@ -198,12 +185,11 @@ def main():
             flashcard_interface()
     
     with tab2:
-        # Test Knowledge tab - Quiz
         st.markdown(
             """
             <div style="margin-bottom: 20px;">
                 <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 10px;">Test Your Knowledge</h2>
-                <p style="color: #666;">Take quizzes based on your uploaded documents to reinforce your learning.</p>
+                <p>Take quizzes based on your uploaded documents to reinforce your learning.</p>
             </div>
             """, 
             unsafe_allow_html=True
@@ -212,12 +198,11 @@ def main():
         quiz_interface()
     
     with tab3:
-        # Analyze tab - Text Complexity, Key Concepts
         st.markdown(
             """
             <div style="margin-bottom: 20px;">
                 <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 10px;">Analyze Your Documents</h2>
-                <p style="color: #666;">Get insights into text complexity and extract key concepts from your documents.</p>
+                <p>Get insights into text complexity and extract key concepts from your documents.</p>
             </div>
             """, 
             unsafe_allow_html=True
@@ -236,8 +221,8 @@ def main():
             st.markdown(
                 """
                 <div style="margin-bottom: 10px;">
-                    <h3 style="font-size: 18px; font-weight: bold;">🔑 Key Concepts</h3>
-                    <p style="color: #666;">Extract the most important concepts from your documents.</p>
+                    <h3 style="font-size: 18px; font-weight: bold;">Key Concepts</h3>
+                    <p>Extract the most important concepts from your documents.</p>
                 </div>
                 """, 
                 unsafe_allow_html=True
@@ -248,22 +233,20 @@ def main():
                 with st.spinner("Extracting key concepts..."):
                     key_concepts = extract_key_concepts(context)
                 
-                # Display key concepts in a more attractive way
                 st.markdown("<h4>Key Concepts:</h4>", unsafe_allow_html=True)
                 
-                # Create a grid for key concepts
                 concept_cols = st.columns(2)
                 for i, (concept, score) in enumerate(key_concepts):
                     col_idx = i % 2
                     with concept_cols[col_idx]:
                         st.markdown(
                             f"""
-                            <div style="background-color: #f0f2f6; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                            <div style="padding: 10px; border-radius: 5px; margin-bottom: 10px; border: 1px solid #ddd;">
                                 <p style="margin: 0; font-weight: bold;">{concept}</p>
-                                <div style="width: 100%; background-color: #e0e0e0; height: 5px; border-radius: 5px; margin-top: 5px;">
-                                    <div style="width: {int(score * 100)}%; background-color: #0068c9; height: 5px; border-radius: 5px;"></div>
+                                <div style="width: 100%; height: 5px; border-radius: 5px; margin-top: 5px; border: 1px solid #ddd;">
+                                    <div style="width: {int(score * 100)}%; height: 5px; border-radius: 5px;"></div>
                                 </div>
-                                <p style="margin: 0; font-size: 12px; color: #666; text-align: right;">{score:.2f}</p>
+                                <p style="margin: 0; font-size: 12px; text-align: right;">{score:.2f}</p>
                             </div>
                             """, 
                             unsafe_allow_html=True
@@ -272,12 +255,11 @@ def main():
                 st.error("No context available. Please upload and process documents first.")
     
     with tab4:
-        # Tools tab - Translation, Sharing, Text to Speech
         st.markdown(
             """
             <div style="margin-bottom: 20px;">
                 <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 10px;">Useful Tools</h2>
-                <p style="color: #666;">Additional tools to enhance your learning experience.</p>
+                <p>Additional tools to enhance your learning experience.</p>
             </div>
             """, 
             unsafe_allow_html=True

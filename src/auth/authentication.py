@@ -176,7 +176,6 @@ class Authentication:
     
     def logout(self):
         """Log out the user and clear session state."""
-        
         # Clear session state
         for key in list(st.session_state.keys()):
             del st.session_state[key]
