@@ -16,12 +16,49 @@ from ui.profile_components import profile_button
 
 def sidebar_components():
     with st.sidebar:
+        # Add app logo and title at the top
+        st.markdown(
+            """
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h1 style="font-size: 24px; margin-bottom: 0;">📚 Learning Assistant</h1>
+                <p style="font-size: 14px; color: #666;">Your AI Study Companion</p>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
+        
         # Profile button at the top of sidebar
         profile_button()
         
-        st.header("Document Upload")
+        # Document upload section with improved styling
+        st.markdown(
+            """
+            <div style="margin-top: 20px; margin-bottom: 10px;">
+                <h2 style="font-size: 18px; font-weight: bold;">
+                    <span style="margin-right: 10px;">📄</span>Document Upload
+                </h2>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
+        
+        # Add a description
+        st.markdown(
+            """
+            <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
+                Upload your PDF documents to start learning and asking questions.
+            </p>
+            """, 
+            unsafe_allow_html=True
+        )
+        
+        # File uploader with better styling
         pdf_docs = st.file_uploader("Upload your PDFs", type="pdf", accept_multiple_files=True)
-        if st.button("Process Documents"):
+        
+        # Process button with better styling
+        process_btn = st.button("Process Documents", type="primary", use_container_width=True)
+        
+        if process_btn:
             if pdf_docs:
                 with st.spinner("Processing documents..."):
                     st.session_state.pdf_docs = pdf_docs  # Store PDFs in session state
@@ -33,6 +70,47 @@ def sidebar_components():
                 st.success("Documents processed successfully!")
             else:
                 st.warning("Please upload PDF documents first.")
+        
+        # Add a divider
+        st.markdown("<hr style='margin-top: 20px; margin-bottom: 20px;'>", unsafe_allow_html=True)
+        
+        # Add quick navigation section
+        st.markdown(
+            """
+            <div style="margin-bottom: 10px;">
+                <h2 style="font-size: 18px; font-weight: bold;">
+                    <span style="margin-right: 10px;">🧭</span>Quick Navigation
+                </h2>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
+        
+        # Create navigation buttons
+        nav_cols = st.columns(2)
+        with nav_cols[0]:
+            st.button("💬 Chat", key="nav_chat", use_container_width=True)
+        with nav_cols[1]:
+            st.button("📝 Quiz", key="nav_quiz", use_container_width=True)
+            
+        nav_cols2 = st.columns(2)
+        with nav_cols2[0]:
+            st.button("📋 Summary", key="nav_summary", use_container_width=True)
+        with nav_cols2[1]:
+            st.button("🔄 Translate", key="nav_translate", use_container_width=True)
+        
+        # Add app info at the bottom
+        st.markdown("<hr style='margin-top: 20px; margin-bottom: 20px;'>", unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #888;">
+                <p>AI-Powered Learning Assistant</p>
+                <p>Version 1.0</p>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
+        
     return "Chat", pdf_docs  # Default to chat interface
 
 def chat_interface():

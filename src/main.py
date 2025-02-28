@@ -1,5 +1,6 @@
 import streamlit as st
 from dotenv import load_dotenv
+import json
 from ui.components import (
     sidebar_components,
     chat_interface,
@@ -64,152 +65,244 @@ def main():
         profile_page()
         return
     
-    st.header("AI-Powered Personalized Learning Assistant")
+    # Create a more attractive header
+    st.markdown(
+        """
+        <div style="text-align: center; padding: 20px 0; margin-bottom: 20px; background-color: #f8f9fa; border-radius: 10px;">
+            <h1 style="color: #0068c9; margin-bottom: 10px;">AI-Powered Learning Assistant</h1>
+            <p style="font-size: 16px; color: #666;">Your personalized study companion for document-based learning</p>
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
     
-    # Information box below the header
-    st.info("""
-    Welcome to your AI-Powered Learning Assistant! This application helps you:
-    - Upload and process PDF documents
-    - Ask questions about the uploaded content
-    - Take quizzes to test your knowledge
-    - Generate summaries and flashcards
-    - Translate text to different languages
-    - Analyze text complexity and extract key concepts
-    - Convert text to speech (Still Work in Progress)
+    # Create a more organized layout with tabs for different functions
+    tab1, tab2, tab3, tab4 = st.tabs(["📚 Learn", "🧠 Test Knowledge", "🔍 Analyze", "🔄 Tools"])
     
-    Get started by uploading your documents in the sidebar!
-    """)
-
-    with st.sidebar:
-        sidebar_components()
-
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
-    chat_container = st.container()
-    with chat_container:
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
-
-    user_choice = st.selectbox("Choose an option:", 
-                               ["Ask a question", "Take a quiz", "Summarize Document", 
-                                "Generate Flashcards", "Translate Text", 
-                                "Share Document", "Analyze Text Complexity", "Extract Key Concepts", "Text to Speech", "Save Chat"])
-
-    if user_choice == "Ask a question":
-        if prompt := st.chat_input("Ask a question about your documents:"):
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            
+    with tab1:
+        # Learn tab - Chat, Summarize, Flashcards
+        st.markdown(
+            """
+            <div style="margin-bottom: 20px;">
+                <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 10px;">Learn from Your Documents</h2>
+                <p style="color: #666;">Ask questions, get summaries, and create flashcards from your uploaded documents.</p>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
+        
+        learn_option = st.radio(
+            "Choose a learning option:",
+            ["Ask a question", "Summarize Document", "Generate Flashcards"],
+            horizontal=True
+        )
+        
+        # Initialize messages if not in session state
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
+        
+        # Display chat interface
+        if learn_option == "Ask a question":
+            chat_container = st.container()
             with chat_container:
-                with st.chat_message("user"):
-                    st.markdown(prompt)
-
-            if st.session_state.context and st.session_state.pdf_docs:
-                with st.spinner("Generating response..."):
-                    response = ai_service.user_input(prompt)
-                    st.session_state.messages.append({"role": "assistant", "content": response['output_text']})
-                    
-                    # Auto-save the chat session if it's not already saved
-                    if 'pdf_docs' in st.session_state and st.session_state.pdf_docs and 'username' in st.session_state:
-                        # Get the names of the PDFs to use as project name
-                        pdf_names = [pdf.name for pdf in st.session_state.pdf_docs]
-                        project_name = f"Chat about {', '.join(pdf_names[:2])}"
-                        if len(pdf_names) > 2:
-                            project_name += f" and {len(pdf_names) - 2} more"
-                            
-                        # Only auto-save if we have enough messages to be worth saving
-                        if len(st.session_state.messages) >= 2:
-                            # Generate a unique chat ID based on the current time if not already set
-                            import time
-                            if 'current_chat_id' not in st.session_state or st.session_state.get('chat_cleared', False):
+                # Add a stylish chat container
+                st.markdown(
+                    """
+                    <div style="margin-bottom: 10px;">
+                        <h3 style="font-size: 18px; font-weight: bold;">💬 Chat with your Documents</h3>
+                    </div>
+                    """, 
+                    unsafe_allow_html=True
+                )
+                
+                # Display chat messages
+                for message in st.session_state.messages:
+                    with st.chat_message(message["role"]):
+                        st.markdown(message["content"])
+            
+            # Chat input
+            if prompt := st.chat_input("Ask a question about your documents:"):
+                st.session_state.messages.append({"role": "user", "content": prompt})
+                
+                with chat_container:
+                    with st.chat_message("user"):
+                        st.markdown(prompt)
+                
+                if st.session_state.context and st.session_state.pdf_docs:
+                    with st.spinner("Generating response..."):
+                        response = ai_service.user_input(prompt)
+                        st.session_state.messages.append({"role": "assistant", "content": response['output_text']})
+                        
+                        # Auto-save chat history
+                        if 'username' in st.session_state and st.session_state.username:
+                            if 'current_chat_id' not in st.session_state:
+                                import time
                                 st.session_state.current_chat_id = f"chat_{int(time.time())}"
                                 st.session_state.chat_cleared = False
                             
-                            # Save the chat history in the background
-                            import json
-                            chat_content = json.dumps(st.session_state.messages)
-                            profile_service.save_chat_history(st.session_state.username, 
-                                                             f"{project_name} ({st.session_state.current_chat_id})", 
-                                                             chat_content)
+                            if not st.session_state.get('chat_cleared', False):
+                                from ui.profile_components import profile_service
+                                chat_content = json.dumps(st.session_state.messages)
+                                
+                                # Generate a default project name based on PDFs
+                                default_name = "Chat Session"
+                                if 'pdf_docs' in st.session_state and st.session_state.pdf_docs:
+                                    pdf_names = [pdf.name for pdf in st.session_state.pdf_docs]
+                                    default_name = f"Chat about {', '.join(pdf_names[:2])}"
+                                    if len(pdf_names) > 2:
+                                        default_name += f" and {len(pdf_names) - 2} more"
+                                
+                                # Add timestamp
+                                import datetime
+                                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+                                project_name = f"{default_name} ({timestamp})"
+                                
+                                profile_service.save_chat_history(st.session_state.username, project_name, chat_content)
                     
-                with st.chat_message("assistant"):
-                    st.markdown(response['output_text'])
-            else:
-                st.warning("Please upload and process documents before asking questions.")
+                    with chat_container:
+                        with st.chat_message("assistant"):
+                            st.markdown(response['output_text'])
+                else:
+                    st.error("Please upload and process documents first.")
         
-        if st.button("Clear Chat History"):
-            # Save the current chat before clearing if it has content
-            if 'messages' in st.session_state and len(st.session_state.messages) >= 2:
-                import json
-                import time
-                import datetime
+        elif learn_option == "Summarize Document":
+            st.markdown(
+                """
+                <div style="margin-bottom: 10px;">
+                    <h3 style="font-size: 18px; font-weight: bold;">📝 Document Summary</h3>
+                    <p style="color: #666;">Get a concise summary of your uploaded documents.</p>
+                </div>
+                """, 
+                unsafe_allow_html=True
+            )
+            
+            context = st.session_state.get("context", "")
+            if context:
+                with st.spinner("Generating summary..."):
+                    summary = summarize_document(context)
                 
-                # Only auto-save if we have a username and PDF docs
-                if 'username' in st.session_state and 'pdf_docs' in st.session_state and st.session_state.pdf_docs:
-                    # Generate a project name
-                    pdf_names = [pdf.name for pdf in st.session_state.pdf_docs]
-                    project_name = f"Chat about {', '.join(pdf_names[:2])}"
-                    if len(pdf_names) > 2:
-                        project_name += f" and {len(pdf_names) - 2} more"
-                    
-                    # Add timestamp to make the name unique
-                    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-                    project_name = f"{project_name} ({timestamp}) [Auto-saved]"
-                    
-                    # Save the chat history
-                    chat_content = json.dumps(st.session_state.messages)
-                    profile_service.save_chat_history(st.session_state.username, project_name, chat_content)
-            
-            # Clear the chat history
-            st.session_state.messages = []
-            st.session_state.chat_cleared = True
-            
-            # Generate a new chat ID for the next conversation
-            import time
-            st.session_state.current_chat_id = f"chat_{int(time.time())}"
-            
-            st.rerun()
-
-    elif user_choice == "Take a quiz":
+                # Display summary in a card-like container
+                st.markdown(
+                    f"""
+                    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 10px; margin-top: 20px;">
+                        <h4 style="margin-bottom: 10px;">Document Summary:</h4>
+                        <p style="line-height: 1.6;">{summary}</p>
+                    </div>
+                    """, 
+                    unsafe_allow_html=True
+                )
+            else:
+                st.error("No context available. Please upload and process documents first.")
+        
+        elif learn_option == "Generate Flashcards":
+            flashcard_interface()
+    
+    with tab2:
+        # Test Knowledge tab - Quiz
+        st.markdown(
+            """
+            <div style="margin-bottom: 20px;">
+                <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 10px;">Test Your Knowledge</h2>
+                <p style="color: #666;">Take quizzes based on your uploaded documents to reinforce your learning.</p>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
+        
         quiz_interface()
+    
+    with tab3:
+        # Analyze tab - Text Complexity, Key Concepts
+        st.markdown(
+            """
+            <div style="margin-bottom: 20px;">
+                <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 10px;">Analyze Your Documents</h2>
+                <p style="color: #666;">Get insights into text complexity and extract key concepts from your documents.</p>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
+        
+        analyze_option = st.radio(
+            "Choose an analysis option:",
+            ["Analyze Text Complexity", "Extract Key Concepts"],
+            horizontal=True
+        )
+        
+        if analyze_option == "Analyze Text Complexity":
+            analysis_interface()
+        
+        elif analyze_option == "Extract Key Concepts":
+            st.markdown(
+                """
+                <div style="margin-bottom: 10px;">
+                    <h3 style="font-size: 18px; font-weight: bold;">🔑 Key Concepts</h3>
+                    <p style="color: #666;">Extract the most important concepts from your documents.</p>
+                </div>
+                """, 
+                unsafe_allow_html=True
+            )
+            
+            context = st.session_state.get("context", "")
+            if context:
+                with st.spinner("Extracting key concepts..."):
+                    key_concepts = extract_key_concepts(context)
+                
+                # Display key concepts in a more attractive way
+                st.markdown("<h4>Key Concepts:</h4>", unsafe_allow_html=True)
+                
+                # Create a grid for key concepts
+                concept_cols = st.columns(2)
+                for i, (concept, score) in enumerate(key_concepts):
+                    col_idx = i % 2
+                    with concept_cols[col_idx]:
+                        st.markdown(
+                            f"""
+                            <div style="background-color: #f0f2f6; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+                                <p style="margin: 0; font-weight: bold;">{concept}</p>
+                                <div style="width: 100%; background-color: #e0e0e0; height: 5px; border-radius: 5px; margin-top: 5px;">
+                                    <div style="width: {int(score * 100)}%; background-color: #0068c9; height: 5px; border-radius: 5px;"></div>
+                                </div>
+                                <p style="margin: 0; font-size: 12px; color: #666; text-align: right;">{score:.2f}</p>
+                            </div>
+                            """, 
+                            unsafe_allow_html=True
+                        )
+            else:
+                st.error("No context available. Please upload and process documents first.")
+    
+    with tab4:
+        # Tools tab - Translation, Sharing, Text to Speech
+        st.markdown(
+            """
+            <div style="margin-bottom: 20px;">
+                <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 10px;">Useful Tools</h2>
+                <p style="color: #666;">Additional tools to enhance your learning experience.</p>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
+        
+        tools_option = st.radio(
+            "Choose a tool:",
+            ["Translate Text", "Share Document", "Text to Speech", "Save Chat"],
+            horizontal=True
+        )
+        
+        if tools_option == "Translate Text":
+            translation_interface()
+        
+        elif tools_option == "Share Document":
+            sharing_interface()
+        
+        elif tools_option == "Text to Speech":
+            audio_interface()
+        
+        elif tools_option == "Save Chat":
+            save_current_chat()
 
-    elif user_choice == "Summarize Document":
-        context = st.session_state.get("context", "")
-        if context:
-            summary = summarize_document(context)
-            st.write("Document Summary:")
-            st.write(summary)
-        else:
-            st.error("No context available. Please upload and process documents first.")
-
-    elif user_choice == "Generate Flashcards":
-        flashcard_interface()
-
-    elif user_choice == "Translate Text":
-        translation_interface()
-
-    elif user_choice == "Share Document":
-        sharing_interface()
-
-    elif user_choice == "Analyze Text Complexity":
-        analysis_interface()
-
-    elif user_choice == "Extract Key Concepts":
-        context = st.session_state.get("context", "")
-        if context:
-            key_concepts = extract_key_concepts(context)
-            st.write("Key Concepts:")
-            for concept, score in key_concepts:
-                st.write(f"{concept}: {score:.4f}")
-        else:
-            st.error("No context available. Please upload and process documents first.")
-
-    elif user_choice == "Text to Speech":
-        audio_interface()
-
-    elif user_choice == "Save Chat":
-        save_current_chat()
+    with st.sidebar:
+        sidebar_components()
 
 if __name__ == "__main__":
     main()

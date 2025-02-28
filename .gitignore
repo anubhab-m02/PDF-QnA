@@ -9,6 +9,7 @@ python==3.11
 faiss_index/
 *.mp3
 *.pdf
+./src/users.db
 
 # System
 .DS_Store

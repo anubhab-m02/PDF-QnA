@@ -74,33 +74,116 @@ class Authentication:
         
     def login(self):
         """Streamlit login/signup form."""
-        st.subheader("Login/Signup")
-        create_usertable()
-        choice = st.radio("Login or Signup", ["Login", "Signup"])
-        if choice == "Login":
-            username = st.text_input("Username")
-            password = st.text_input("Password", type='password')
-            if st.button("Login"):
-                if login_user(username, password):
-                    st.success("Logged in as {}".format(username))
-                    st.session_state["authenticated"] = True
-                    st.session_state["username"] = username
-                    logger.info(f"User {username} logged in successfully.")
-                else:
-                    st.warning("Incorrect username/password")
-                    logger.warning(f"Failed login attempt for user {username}.")
-        elif choice == "Signup":
-            username = st.text_input("Username")
-            password = st.text_input("Password", type='password')
-            confirm_password = st.text_input("Confirm Password", type='password')
-            if st.button("Signup"):
-                if password == confirm_password:
-                    if add_userdata(username, password):
-                        st.success("You have successfully created an account")
-                        st.info("Go to the Login tab to login")
-                        logger.info(f"New user {username} registered successfully.")
+        # Create a centered layout
+        col1, col2, col3 = st.columns([1, 2, 1])
+        
+        with col2:
+            # App logo and title
+            st.title("📚 Learning Assistant")
+            st.subheader("Welcome to your AI-Powered Learning Tool")
+            
+            # Create the user table if it doesn't exist
+            create_usertable()
+            
+            # Login/Signup tabs
+            tab1, tab2 = st.tabs(["Login", "Sign Up"])
+            
+            with tab1:
+                st.header("Login to Your Account")
+                username = st.text_input("Username", key="login_username")
+                password = st.text_input("Password", type='password', key="login_password")
+                
+                remember_me = st.checkbox("Remember me")
+                
+                login_button = st.button("Login", use_container_width=True)
+                
+                if login_button:
+                    if username and password:  # Basic validation
+                        if login_user(username, password):
+                            st.success("Login successful!")
+                            st.session_state["authenticated"] = True
+                            st.session_state["username"] = username
+                            logger.info(f"User {username} logged in successfully.")
+                            
+                            # Add a spinner to show loading before redirect
+                            with st.spinner("Redirecting to dashboard..."):
+                                import time
+                                time.sleep(1)  # Brief pause for UX
+                                st.rerun()
+                        else:
+                            st.error("Incorrect username or password")
+                            logger.warning(f"Failed login attempt for user {username}.")
                     else:
-                        st.error("Error creating account. Please try again.")
-                else:
-                    st.warning("Passwords don't match")
-                    logger.warning("Password mismatch during signup.")
+                        st.warning("Please enter both username and password")
+            
+            with tab2:
+                st.header("Create a New Account")
+                new_username = st.text_input("Choose a Username", key="signup_username")
+                new_password = st.text_input("Create Password", type='password', key="signup_password")
+                confirm_password = st.text_input("Confirm Password", type='password', key="confirm_password")
+                
+                # Password strength indicator
+                if new_password:
+                    strength = self._check_password_strength(new_password)
+                    if strength == "weak":
+                        st.warning("Password is weak. Consider using a stronger password.")
+                    elif strength == "medium":
+                        st.info("Password strength: Medium")
+                    else:
+                        st.success("Password strength: Strong")
+                
+                signup_button = st.button("Create Account", use_container_width=True)
+                
+                if signup_button:
+                    if new_username and new_password and confirm_password:  # Basic validation
+                        if new_password == confirm_password:
+                            if self._check_password_strength(new_password) != "weak":
+                                if add_userdata(new_username, new_password):
+                                    st.success("Account created successfully!")
+                                    st.info("Please go to the Login tab to sign in.")
+                                    logger.info(f"New user {new_username} registered successfully.")
+                                else:
+                                    st.error("Error creating account. Please try again.")
+                            else:
+                                st.error("Please use a stronger password")
+                        else:
+                            st.error("Passwords don't match")
+                            logger.warning("Password mismatch during signup.")
+                    else:
+                        st.warning("Please fill in all fields")
+            
+    
+    def _check_password_strength(self, password):
+        """Check the strength of a password."""
+        # Simple password strength checker
+        if len(password) < 8:
+            return "weak"
+        
+        has_upper = any(c.isupper() for c in password)
+        has_lower = any(c.islower() for c in password)
+        has_digit = any(c.isdigit() for c in password)
+        has_special = any(not c.isalnum() for c in password)
+        
+        # Count the criteria met
+        criteria_met = sum([has_upper, has_lower, has_digit, has_special])
+        
+        if criteria_met >= 3 and len(password) >= 10:
+            return "strong"
+        elif criteria_met >= 2 and len(password) >= 8:
+            return "medium"
+        else:
+            return "weak"
+    
+    def logout(self):
+        """Log out the user and clear session state."""
+        
+        # Clear session state
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        
+        # Set authenticated to False
+        st.session_state.authenticated = False
+        
+        from utils.logging_config import logger
+        logger.info("User logged out successfully.")
+        return True
