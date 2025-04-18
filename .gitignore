@@ -4,12 +4,13 @@ venv/
 __pycache__/
 python==3.11
 *.pyc
+*.db
 
 # Data
 faiss_index/
 *.mp3
 *.pdf
-./src/users.db
+src/users.db
 
 # System
 .DS_Store
