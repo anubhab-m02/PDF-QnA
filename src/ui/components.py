@@ -13,6 +13,7 @@ from services.text_translation_service import TranslationService
 from services.speech_service import speech_service
 from utils.logging_config import logger
 from ui.profile_components import profile_button
+from services.profile_service import profile_service
 
 def sidebar_components():
     with st.sidebar:
@@ -133,21 +134,47 @@ def chat_interface():
 
 def quiz_interface():
     st.header("Quiz Mode")
+    
+    # Check if user is logged in
+    if "username" not in st.session_state:
+        st.warning("Please log in to save your quiz results and get personalized learning paths.")
+        username = None
+    else:
+        username = st.session_state.username
+    
+    # Initialize session state variables if they don't exist
     if "quiz_state" not in st.session_state:
         st.session_state.quiz_state = "not_started"
         st.session_state.questions = []
         st.session_state.current_question = 0
         st.session_state.score = 0
-
+        st.session_state.user_answers = []
+        st.session_state.answer_submitted = False
+        st.session_state.current_answer_correct = False
+        st.session_state.quiz_topic = ""
+    
+    # Ensure quiz_topic exists even for existing sessions
+    if "quiz_topic" not in st.session_state:
+        st.session_state.quiz_topic = ""
+    
     if st.session_state.quiz_state == "not_started":
+        # Allow user to specify a topic for the quiz
+        topic = st.text_input("Quiz Topic (optional):", key="quiz_topic_input")
+        
         if st.button("Start Quiz"):
             if "context" in st.session_state:
-                questions = quiz_service.generate_quiz(st.session_state.context)
+                # Save the topic
+                st.session_state.quiz_topic = topic
+                
+                # Generate questions, passing username to avoid repeating questions
+                questions = quiz_service.generate_quiz(st.session_state.context, username)
                 if questions:
                     st.session_state.questions = questions
                     st.session_state.quiz_state = "in_progress"
-                    # Simulate rerun by using a state toggle
-                    st.query_params["rerun"] = "true"
+                    st.session_state.user_answers = []
+                    st.session_state.answer_submitted = False
+                    st.session_state.current_answer_correct = False
+                    st.rerun()
                 else:
                     st.warning("Failed to generate quiz questions. Please try again.")
             else:
@@ -159,36 +186,109 @@ def quiz_interface():
             question = st.session_state.questions[current_question]
             st.write(f"**Question {current_question + 1}:** {question['question']}")
             options = question['options']
-            selected_option = st.selectbox("Choose an answer:", options, key=f"q_{current_question}")
+            
+            # Create a list of options with letters
+            option_letters = ['A', 'B', 'C', 'D']
+            labeled_options = [f"{option_letters[i]}) {option}" for i, option in enumerate(options)]
+            
+            # Display options with letters
+            selected_option_index = st.selectbox(
+                "Choose an answer:", 
+                range(len(labeled_options)), 
+                format_func=lambda i: labeled_options[i],
+                key=f"q_{current_question}"
+            )
 
-            if st.button("Submit Answer"):
-                if selected_option:
-                    is_correct = quiz_service.check_answer(question, selected_option)
+            # Show submit button only if answer not yet submitted
+            if not st.session_state.answer_submitted:
+                if st.button("Submit Answer"):
+                    # Get the letter corresponding to the selected option
+                    selected_letter = option_letters[selected_option_index]
+                    
+                    # Store user's answer (the letter)
+                    if "user_answers" not in st.session_state:
+                        st.session_state.user_answers = []
+                    st.session_state.user_answers.append(selected_letter)
+                    
+                    is_correct = quiz_service.check_answer(question, selected_letter)
+                    st.session_state.current_answer_correct = is_correct
+                    
                     if is_correct:
                         st.session_state.score += 1
                         st.success("Correct!")
                     else:
                         st.error(f"Incorrect. The correct answer was {question['correct_answer']}.")
+                    
+                    # Mark answer as submitted but don't move to next question yet
+                    st.session_state.answer_submitted = True
+                    st.rerun()
+            
+            # Show feedback and next button if answer was submitted
+            else:
+                if st.session_state.current_answer_correct:
+                    st.success("Correct!")
+                else:
+                    st.error(f"Incorrect. The correct answer was {question['correct_answer']}.")
+                
+                # Next button to move to the next question
+                if st.button("Next Question"):
                     st.session_state.current_question += 1
-                    # Simulate rerun by using a state toggle
-                    st.query_params["rerun"] = "true"
+                    st.session_state.answer_submitted = False
+                    
+                    # Check if this was the last question
+                    if st.session_state.current_question >= len(st.session_state.questions):
+                        st.session_state.quiz_state = "finished"
+                    
+                    st.rerun()
         else:
             st.session_state.quiz_state = "finished"
-            # Simulate rerun by using a state toggle
-            st.query_params["rerun"] = "true"
+            st.rerun()
 
     elif st.session_state.quiz_state == "finished":
         st.write(f"**Quiz completed! Your score: {st.session_state.score}/{len(st.session_state.questions)}**")
         quiz_performance = (st.session_state.score / len(st.session_state.questions)) * 100
-        learning_path = suggest_learning_paths(quiz_performance)
+        
+        # Check if user_answers exists in session state
+        if "user_answers" not in st.session_state:
+            st.session_state.user_answers = []
+        
+        # Generate personalized learning path
+        learning_path = suggest_learning_paths(quiz_performance, st.session_state.questions, st.session_state.user_answers)
         st.write("**Suggested Learning Path:**")
         st.write(learning_path)
+        
+        # Save quiz results to profile if user is logged in
+        if username:
+            # Make sure quiz_topic exists in session state
+            quiz_topic = ""
+            if hasattr(st.session_state, "quiz_topic"):
+                quiz_topic = st.session_state.quiz_topic
+            
+            # Save quiz results to the database
+            saved = profile_service.save_quiz_result(
+                username=username,
+                score=st.session_state.score,
+                total_questions=len(st.session_state.questions),
+                questions=st.session_state.questions,
+                user_answers=st.session_state.user_answers,
+                topic=quiz_topic
+            )
+            
+            if saved:
+                st.success("Quiz results saved to your profile!")
+            else:
+                st.error("Failed to save quiz results to your profile.")
+        else:
+            st.warning("Log in to save your quiz results and track your progress.")
+        
         if st.button("Start New Quiz"):
             st.session_state.quiz_state = "not_started"
             st.session_state.score = 0
             st.session_state.current_question = 0
-            # Simulate rerun by using a state toggle
-            st.query_params["rerun"] = "true"
+            st.session_state.user_answers = []
+            st.session_state.answer_submitted = False
+            st.session_state.quiz_topic = ""
+            st.rerun()
 
 def flashcard_interface():
     st.header("Flashcards")
@@ -304,11 +404,67 @@ def audio_interface():
     else:
         st.warning("Please upload and process documents first.")
 
-def suggest_learning_paths(quiz_performance):
-    """Suggest personalized learning paths based on quiz performance."""
+def suggest_learning_paths(quiz_performance, questions=None, user_answers=None):
+    """
+    Suggest personalized learning paths based on quiz performance and specific questions.
+    
+    Args:
+        quiz_performance (float): Overall quiz score percentage
+        questions (list, optional): List of quiz questions with their details
+        user_answers (list, optional): List of user's answers to each question
+    
+    Returns:
+        str: Personalized learning path suggestion
+    """
+    # Default suggestion based on overall performance
+    if questions is None or user_answers is None:
+        if quiz_performance > 80:
+            return "You're excelling! Consider exploring advanced topics or applying your knowledge to real-world projects."
+        elif quiz_performance > 50:
+            return "You're making good progress. Focus on reviewing the topics you found challenging and practice with more examples."
+        else:
+            return "It seems you might need more practice. Consider revisiting the fundamental concepts and try breaking down complex topics into smaller, manageable parts."
+    
+    # Analyze incorrect answers to identify specific areas for improvement
+    incorrect_topics = []
+    for i, question in enumerate(questions):
+        if i < len(user_answers):
+            is_correct = question.get('correct_answer') == user_answers[i]
+            if not is_correct:
+                # Extract topic from question
+                question_text = question.get('question', '')
+                
+                # Try to extract a meaningful topic from the question
+                # Remove common question phrases and get the key concept
+                topic = question_text
+                for phrase in ["What is", "How does", "Explain", "Define", "Describe", "?", "."]:
+                    topic = topic.replace(phrase, "")
+                
+                # Limit topic length to keep suggestions concise
+                if len(topic) > 50:
+                    topic = topic[:47] + "..."
+                
+                incorrect_topics.append(topic.strip())
+    
+    # Generate personalized suggestions based on performance and incorrect topics
+    suggestion = ""
+    
     if quiz_performance > 80:
-        return "You're excelling! Consider exploring advanced topics or applying your knowledge to real-world projects."
+        suggestion = "You're excelling! "
+        if incorrect_topics:
+            suggestion += f"You might want to review: {', '.join(incorrect_topics[:2])}. "
+        suggestion += "Consider exploring advanced topics or applying your knowledge to real-world projects."
+    
     elif quiz_performance > 50:
-        return "You're making good progress. Focus on reviewing the topics you found challenging and practice with more examples."
+        suggestion = "You're making good progress. "
+        if incorrect_topics:
+            suggestion += f"Focus on reviewing these specific areas: {', '.join(incorrect_topics)}. "
+        suggestion += "Try practicing with more examples in these topics."
+    
     else:
-        return "It seems you might need more practice. Consider revisiting the fundamental concepts and try breaking down complex topics into smaller, manageable parts."
+        suggestion = "It seems you might need more practice. "
+        if incorrect_topics:
+            suggestion += f"Concentrate on these fundamental concepts: {', '.join(incorrect_topics)}. "
+        suggestion += "Try breaking down these complex topics into smaller, manageable parts and revisit the core principles."
+    
+    return suggestion

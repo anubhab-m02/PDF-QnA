@@ -92,7 +92,7 @@ def profile_page():
     )
     
     # Add tabs for different sections
-    profile_tab, history_tab = st.tabs(["Profile Info", "Chat History"])
+    profile_tab, history_tab, quiz_tab = st.tabs(["Profile Info", "Chat History", "Quiz History"])
     
     with profile_tab:
         st.subheader("Account Information")
@@ -168,6 +168,156 @@ def profile_page():
                             from utils.logging_config import logger
                             logger.error(f"Error displaying chat history: {str(e)}")
                             st.error("Could not load chat history.")
+    
+    with quiz_tab:
+        st.subheader("Quiz History")
+        
+        # Get user's quiz history
+        quiz_history = profile_service.get_user_quiz_history(username)
+        
+        if not quiz_history:
+            st.info("You haven't taken any quizzes yet. Go to the Quiz Mode to test your knowledge!")
+        else:
+            # Display quiz history in a table
+            st.write(f"You have taken {len(quiz_history)} quizzes.")
+            
+            # Create a dataframe for the quiz history
+            import pandas as pd
+            
+            # Convert quiz history to a dataframe
+            quiz_data = []
+            for quiz_id, quiz_date, score, total_questions, topic in quiz_history:
+                score_percentage = (score / total_questions) * 100
+                quiz_data.append({
+                    "Quiz ID": quiz_id,
+                    "Date": quiz_date,
+                    "Topic": topic if topic else "General",
+                    "Score": f"{score}/{total_questions} ({score_percentage:.1f}%)",
+                    "Performance": score_percentage
+                })
+            
+            df = pd.DataFrame(quiz_data)
+            
+            # Function to color rows based on performance
+            def color_rows(row):
+                performance = float(row["Score"].split("(")[1].split("%")[0])
+                if performance >= 80:
+                    return ['background-color: rgba(0, 255, 0, 0.2)'] * len(row)
+                elif performance >= 50:
+                    return ['background-color: rgba(255, 255, 0, 0.2)'] * len(row)
+                else:
+                    return ['background-color: rgba(255, 0, 0, 0.2)'] * len(row)
+            
+            # Apply styling and display the table
+            # Use a copy of the dataframe without dropping any columns
+            display_df = df.drop(columns=["Performance"])
+            styled_df = display_df.style.apply(color_rows, axis=1)
+            st.dataframe(styled_df, use_container_width=True)
+            
+            # Add a section for viewing quiz details
+            st.subheader("Quiz Details")
+            
+            # Let user select a quiz to view details
+            selected_quiz = st.selectbox(
+                "Select a quiz to view details:",
+                options=[f"Quiz {q[0]}: {q[4] if q[4] else 'General'} - {q[1]}" for q in quiz_history],
+                key="quiz_selector"
+            )
+            
+            if selected_quiz:
+                # Extract quiz ID from the selection
+                quiz_id = int(selected_quiz.split(":")[0].replace("Quiz ", ""))
+                
+                # Get quiz details
+                quiz_details = profile_service.get_quiz_details(quiz_id)
+                
+                if quiz_details:
+                    st.write(f"**Topic:** {quiz_details['topic'] if quiz_details['topic'] else 'General'}")
+                    st.write(f"**Date:** {quiz_details['quiz_date']}")
+                    st.write(f"**Score:** {quiz_details['score']}/{quiz_details['total_questions']} ({(quiz_details['score']/quiz_details['total_questions'])*100:.1f}%)")
+                    
+                    # Display questions and answers
+                    st.write("**Questions and Answers:**")
+                    
+                    for i, question in enumerate(quiz_details['questions']):
+                        with st.expander(f"Question {i+1}: {question['question']}"):
+                            # Display options
+                            for j, option in enumerate(question['options']):
+                                option_letter = chr(65 + j)  # A, B, C, D
+                                
+                                # Determine if this option was selected by the user
+                                user_selected = False
+                                if i < len(quiz_details['user_answers']):
+                                    user_selected = quiz_details['user_answers'][i] == option_letter
+                                
+                                # Determine if this is the correct answer
+                                is_correct = question['correct_answer'] == option_letter
+                                
+                                # Style the option based on correctness and selection
+                                if is_correct and user_selected:
+                                    st.markdown(f"✅ **{option_letter}) {option}** (Your correct answer)")
+                                elif is_correct:
+                                    st.markdown(f"✅ **{option_letter}) {option}** (Correct answer)")
+                                elif user_selected:
+                                    st.markdown(f"❌ **{option_letter}) {option}** (Your incorrect answer)")
+                                else:
+                                    st.markdown(f"{option_letter}) {option}")
+                    
+                    # Generate personalized learning path based on this quiz
+                    from ui.components import suggest_learning_paths
+                    
+                    quiz_performance = (quiz_details['score'] / quiz_details['total_questions']) * 100
+                    learning_path = suggest_learning_paths(
+                        quiz_performance, 
+                        quiz_details['questions'], 
+                        quiz_details['user_answers']
+                    )
+                    
+                    st.write("**Personalized Learning Path:**")
+                    st.info(learning_path)
+                else:
+                    st.error("Failed to retrieve quiz details.")
+            
+            # Add a section for overall performance analysis
+            st.subheader("Performance Analysis")
+            
+            # Calculate average score from the score percentages extracted from the quiz data
+            if df.empty:
+                avg_score = 0
+            else:
+                # Extract performance percentages from the Score column
+                performance_values = [float(d["Score"].split("(")[1].split("%")[0]) for d in quiz_data]
+                avg_score = sum(performance_values) / len(performance_values)
+            
+            # Display overall stats
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Total Quizzes", len(quiz_history))
+            with col2:
+                st.metric("Average Score", f"{avg_score:.1f}%")
+            
+            # Create a simple bar chart of quiz scores over time
+            if len(quiz_data) > 1:
+                # Extract performance percentages for the chart
+                performance_values = [float(d["Score"].split("(")[1].split("%")[0]) for d in quiz_data]
+                
+                chart_data = pd.DataFrame({
+                    "Quiz": [f"Quiz {i+1}" for i in range(len(quiz_data))],
+                    "Score (%)": performance_values
+                })
+                
+                st.bar_chart(chart_data.set_index("Quiz")["Score (%)"])
+                
+                # Add trend analysis
+                recent_scores = performance_values[:3]
+                avg_recent = sum(recent_scores) / len(recent_scores)
+                
+                if avg_recent > avg_score:
+                    st.success("Your recent quiz performance is improving! Keep up the good work.")
+                elif avg_recent < avg_score:
+                    st.warning("Your recent quiz performance has been declining. Consider reviewing the suggested learning paths.")
+                else:
+                    st.info("Your quiz performance has been consistent. Keep practicing to improve!")
     
     # Add a footer with action buttons
     st.markdown("---")

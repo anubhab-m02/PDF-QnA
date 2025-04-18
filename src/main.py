@@ -1,5 +1,6 @@
 import streamlit as st
 from dotenv import load_dotenv
+import json
 from ui.components import (
     sidebar_components,
     chat_interface,
@@ -67,7 +68,7 @@ def main():
     st.markdown(
         """
         <div style="text-align: center; padding: 20px 0; margin-bottom: 20px; border-radius: 10px;">
-            <h1 style="margin-bottom: 10px;">AI-Powered Learning Assistant</h1>
+            <h1 style="margin-bottom: 10px;">AI-Powered Personalized Learning Assistant</h1>
             <p style="font-size: 16px;">Your personalized study companion for document-based learning</p>
         </div>
         """, 
@@ -111,9 +112,57 @@ def main():
                 for message in st.session_state.messages:
                     with st.chat_message(message["role"]):
                         st.markdown(message["content"])
+                
+            # Create a simpler layout with three columns
+            input_col, save_col, clear_col = st.columns([6, 1, 1])
             
-            if prompt := st.chat_input("Ask a question about your documents:"):
+            with input_col:
+                prompt = st.chat_input("Ask a question about your documents:")
+            
+            with save_col:
+                save_button = st.button("Save", key="save_chat", 
+                                      disabled=not st.session_state.messages,
+                                      use_container_width=True,
+                                      type="primary")
+            
+            with clear_col:
+                clear_button = st.button("Clear", key="clear_chat", 
+                                       disabled=not st.session_state.messages,
+                                       use_container_width=True,
+                                       type="secondary")
+            
+            # Handle save button click
+            if save_button and st.session_state.messages and 'username' in st.session_state:
+                from ui.profile_components import profile_service
+                chat_content = json.dumps(st.session_state.messages)
+                
+                default_name = "Chat Session"
+                if 'pdf_docs' in st.session_state and st.session_state.pdf_docs:
+                    pdf_names = [pdf.name for pdf in st.session_state.pdf_docs]
+                    default_name = f"Chat about {', '.join(pdf_names[:2])}"
+                    if len(pdf_names) > 2:
+                        default_name += f" and {len(pdf_names) - 2} more"
+                
+                import datetime
+                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+                project_name = f"{default_name} ({timestamp})"
+                
+                profile_service.save_chat_history(st.session_state.username, project_name, chat_content)
+                # Set flag to indicate chat has been manually saved
+                st.session_state.chat_manually_saved = True
+                st.success("Chat history saved successfully!")
+                
+            # Handle clear button click
+            if clear_button and st.session_state.messages:
+                st.session_state.messages = []
+                st.session_state.chat_cleared = True
+                st.session_state.chat_manually_saved = False
+                st.rerun()
+                
+            if prompt:
                 st.session_state.messages.append({"role": "user", "content": prompt})
+                # Reset chat_cleared flag when new messages are added
+                st.session_state.chat_cleared = False
                 
                 with chat_container:
                     with st.chat_message("user"):
@@ -130,7 +179,8 @@ def main():
                                 st.session_state.current_chat_id = f"chat_{int(time.time())}"
                                 st.session_state.chat_cleared = False
                             
-                            if not st.session_state.get('chat_cleared', False):
+                            # Only auto-save if chat hasn't been manually saved and hasn't been cleared
+                            if not st.session_state.get('chat_cleared', False) and not st.session_state.get('chat_manually_saved', False):
                                 from ui.profile_components import profile_service
                                 chat_content = json.dumps(st.session_state.messages)
                                 
