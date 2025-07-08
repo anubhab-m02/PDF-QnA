@@ -72,34 +72,6 @@ def sidebar_components():
             else:
                 st.warning("Please upload PDF documents first.")
         
-        # Add a divider
-        st.markdown("<hr style='margin-top: 20px; margin-bottom: 20px;'>", unsafe_allow_html=True)
-        
-        # Add quick navigation section
-        st.markdown(
-            """
-            <div style="margin-bottom: 10px;">
-                <h2 style="font-size: 18px; font-weight: bold;">
-                    <span style="margin-right: 10px;">🧭</span>Quick Navigation
-                </h2>
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
-        
-        # Create navigation buttons
-        nav_cols = st.columns(2)
-        with nav_cols[0]:
-            st.button("💬 Chat", key="nav_chat", use_container_width=True)
-        with nav_cols[1]:
-            st.button("📝 Quiz", key="nav_quiz", use_container_width=True)
-            
-        nav_cols2 = st.columns(2)
-        with nav_cols2[0]:
-            st.button("📋 Summary", key="nav_summary", use_container_width=True)
-        with nav_cols2[1]:
-            st.button("🔄 Translate", key="nav_translate", use_container_width=True)
-        
         # Add app info at the bottom
         st.markdown("<hr style='margin-top: 20px; margin-bottom: 20px;'>", unsafe_allow_html=True)
         st.markdown(
