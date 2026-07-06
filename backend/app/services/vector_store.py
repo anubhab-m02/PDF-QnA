@@ -49,6 +49,21 @@ class VectorStore:
     def delete_document(self, document_id: int) -> None:
         self._collection.delete(where={"document_id": document_id})
 
+    def get_document_chunks(self, document_id: int, user_id: int, limit: int = 40) -> list[dict]:
+        """Fetch a representative sample of a document's chunks (no similarity search —
+        used for tasks like quiz/flashcard/summary generation that need broad coverage
+        rather than a query-relevant subset)."""
+        result = self._collection.get(
+            where={"$and": [{"user_id": user_id}, {"document_id": document_id}]},
+            limit=limit,
+        )
+        hits: list[dict] = []
+        docs = result.get("documents") or []
+        metas = result.get("metadatas") or []
+        for doc, meta in zip(docs, metas):
+            hits.append({"text": doc, **meta})
+        return hits
+
 
 @lru_cache
 def get_vector_store() -> VectorStore:
