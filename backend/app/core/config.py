@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", extra="ignore")
 
     google_api_key: str = ""
-    jwt_secret: str = "dev-secret-change-me"
+    jwt_secret: str = "dev-only-insecure-default-secret-change-me-in-env"
     jwt_algorithm: str = "HS256"
     jwt_expire_days: int = 7
 
