@@ -1,16 +1,28 @@
 # Environment
 .env
+backend/.env
 venv/
-__pycache__/
+.venv/
 python==3.11
+__pycache__/
 *.pyc
-*.db
 
 # Data
+*.db
+src/users.db
+data/
 faiss_index/
+audio_output/
 *.mp3
 *.pdf
-src/users.db
+
+# Frontend
+node_modules/
+.next/
+
+# Claude
+.claude/
+CLAUDE.md
 
 # System
 .DS_Store
@@ -22,4 +34,3 @@ src/users.db
 
 # Temp files
 *.tmp
-python==3.11
