@@ -57,7 +57,7 @@ Elevate your learning experience with our cutting-edge AI-powered assistant that
 
 3. **Launch:**
    ```bash
-   streamlit run app.py
+   streamlit run src/main.py
    ```
 
 ## 💡 Usage Guide
