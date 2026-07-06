@@ -9,7 +9,7 @@ def summarize_document(text):
         return "Input text is too short for summarization."
     
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash-002')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         prompt = f"""
         Please provide a concise summary of the following text. The summary should capture the main points and key ideas:
 

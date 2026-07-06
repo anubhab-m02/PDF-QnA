@@ -26,7 +26,7 @@ class QuizService:
             if username:
                 previously_asked = profile_service.get_previously_asked_questions(username)
                 
-            model = genai.GenerativeModel('gemini-1.5-flash-002')
+            model = genai.GenerativeModel('gemini-2.5-flash')
             
             # Add instruction to avoid repeating questions if there are previous questions
             avoid_repetition = ""

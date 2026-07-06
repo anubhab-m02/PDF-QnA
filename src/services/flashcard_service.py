@@ -11,7 +11,7 @@ class FlashcardService:
             logger.error("Input text is too short for generating flashcards.")
             return [], "Input text is too short."
 
-        model = genai.GenerativeModel('gemini-1.5-flash-002')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         flashcard_prompt = f"""
         Based on the following context, generate 5 different flashcards with key terms or concepts and their definitions.
         Each flashcard should contain a term and its corresponding definition.
