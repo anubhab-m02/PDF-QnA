@@ -17,6 +17,32 @@ class FakeGeminiService:
         return "fake response"
 
     async def generate_structured(self, prompt: str, response_schema: type) -> str:
+        import json
+
+        schema_name = getattr(response_schema, "__name__", "")
+        if schema_name == "QuizGenerationResult":
+            return json.dumps(
+                {
+                    "questions": [
+                        {
+                            "question": f"Fake question {i}?",
+                            "options": ["A", "B", "C", "D"],
+                            "answer_index": 0,
+                            "explanation": "Because fake.",
+                        }
+                        for i in range(1, 4)
+                    ]
+                }
+            )
+        if schema_name == "FlashcardGenerationResult":
+            return json.dumps(
+                {
+                    "flashcards": [
+                        {"term": f"Term {i}", "definition": f"Definition {i}"}
+                        for i in range(1, 4)
+                    ]
+                }
+            )
         return "{}"
 
     async def stream_text(self, prompt: str):
@@ -45,3 +71,10 @@ class FakeVectorStore:
         to_remove = [k for k, v in self._chunks.items() if v["document_id"] == document_id]
         for k in to_remove:
             del self._chunks[k]
+
+    def get_document_chunks(self, document_id: int, user_id: int, limit: int = 40) -> list[dict]:
+        hits = [
+            c for c in self._chunks.values()
+            if c["user_id"] == user_id and c["document_id"] == document_id
+        ]
+        return hits[:limit]

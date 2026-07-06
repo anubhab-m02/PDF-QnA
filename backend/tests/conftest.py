@@ -26,11 +26,14 @@ async def client():
         async with session_factory() as session:
             yield session
 
+    fake_gemini = FakeGeminiService()
+    fake_vector_store = FakeVectorStore()
+
     app = create_app()
     app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_session_factory] = lambda: session_factory
-    app.dependency_overrides[get_gemini_service] = lambda: FakeGeminiService()
-    app.dependency_overrides[get_vector_store] = lambda: FakeVectorStore()
+    app.dependency_overrides[get_gemini_service] = lambda: fake_gemini
+    app.dependency_overrides[get_vector_store] = lambda: fake_vector_store
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
