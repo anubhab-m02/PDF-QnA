@@ -6,6 +6,7 @@ import { AlertCircle } from "lucide-react";
 import { ChatBubble } from "@/components/chat/chat-bubble";
 import { ChatInput } from "@/components/chat/chat-input";
 import { SessionSwitcher } from "@/components/chat/session-switcher";
+import { DocumentNav } from "@/components/documents/document-nav";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { apiFetch, authHeaders, ApiError, NetworkError } from "@/lib/api";
@@ -243,6 +244,7 @@ export default function DocumentChatPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="flex h-full flex-col">
+      <DocumentNav documentId={documentId} />
       <div className="flex items-center justify-between border-b px-4 py-3">
         <p className="min-w-0 truncate font-medium">{document?.title ?? "Chat"}</p>
         <SessionSwitcher
