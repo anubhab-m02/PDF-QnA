@@ -94,36 +94,38 @@ export default function LibraryPage() {
   const isEmpty = documents !== null && documents.length === 0;
 
   return (
-    <div className="flex flex-col gap-6">
-      <UploadDropzone onFileSelected={handleUpload} />
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-8">
+        <UploadDropzone onFileSelected={handleUpload} />
 
-      {uploading && (
-        <p className="text-sm text-muted-foreground">Uploading…</p>
-      )}
+        {uploading && (
+          <p className="text-sm text-muted-foreground">Uploading…</p>
+        )}
 
-      {documents === null && (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-32 rounded-lg" />
-          ))}
-        </div>
-      )}
+        {documents === null && (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-32 rounded-lg" />
+            ))}
+          </div>
+        )}
 
-      {isEmpty && (
-        <div className="flex flex-col items-center gap-2 py-16 text-center">
-          <FileText className="size-10 text-muted-foreground" />
-          <p className="text-lg font-medium">No documents yet</p>
-          <p className="text-sm text-muted-foreground">Upload a PDF to start learning</p>
-        </div>
-      )}
+        {isEmpty && (
+          <div className="flex flex-col items-center gap-2 py-16 text-center">
+            <FileText className="size-10 text-muted-foreground" />
+            <p className="text-lg font-medium">No documents yet</p>
+            <p className="text-sm text-muted-foreground">Upload a PDF to start learning</p>
+          </div>
+        )}
 
-      {documents && documents.length > 0 && (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
-          {documents.map((doc) => (
-            <DocumentCard key={doc.id} document={doc} onDelete={handleDelete} />
-          ))}
-        </div>
-      )}
+        {documents && documents.length > 0 && (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
+            {documents.map((doc) => (
+              <DocumentCard key={doc.id} document={doc} onDelete={handleDelete} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
